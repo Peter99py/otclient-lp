@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+<meta charset="utf-8">
+<title>MegaBrain</title>
+<link rel="stylesheet" href="/ui/css/style.css">
+</head>
+<body>
+<div id="app">
+  <aside id="menu">
+    <div id="menu-head">
+      <button id="menu-toggle" title="Recolher/expandir o menu">&#9776;</button>
+      <h3>MegaBrain</h3>
+      <span id="conn" class="off" title="Conexão com o backend">&#9679;</span>
+      <button id="notif-bell" title="Notificações">&#128276;<span id="notif-badge" hidden></span></button>
+      <button id="help-btn" title="Ajuda: o que é cada coisa">?</button>
+    </div>
+    <div id="help-panel" hidden>
+      <b>Páginas</b>
+      <ul>
+        <li><b>Entorno atual</b>: o que o personagem vê agora, em tempo real.</li>
+        <li><b>Cave</b>: o mapa já descoberto e salvo no banco.</li>
+      </ul>
+      <b>No menu</b>
+      <ul>
+        <li><b>&#10003;</b>: cave totalmente explorada.</li>
+        <li><b>&hellip;</b>: exploração em andamento.</li>
+      </ul>
+      <b>No mapa</b>
+      <ul>
+        <li>Verde = andável; vermelho = bloqueado; verde claro = já mapeado.</li>
+        <li>Azul = jogador; círculos = monstros/NPCs.</li>
+        <li>Linha amarela = rota; linha azul = caminho comandado.</li>
+      </ul>
+    </div>
+    <div id="notif-list" hidden></div>
+    <div id="status">Aguardando...</div>
+    <div id="notice-banner" hidden></div>
+    <input id="cave-filter" type="text" placeholder="Filtrar caves...">
+    <div id="cave-filters">
+      <input id="cave-min-tiles" type="number" min="0" step="10" title="Mínimo de tiles por cave">
+      <select id="cave-explored" title="Filtrar por estado de exploração">
+        <option value="all">Todas</option>
+        <option value="yes">Exploradas</option>
+        <option value="no">Explorando</option>
+      </select>
+      <select id="cave-sort" title="Ordenar caves">
+        <option value="name">Nome</option>
+        <option value="tiles">Tamanho</option>
+        <option value="recent">Recente</option>
+      </select>
+    </div>
+    <div id="menu-items"></div>
+  </aside>
+  <main id="main">
+    <canvas id="canvas"></canvas>
+    <div id="tooltip" hidden></div>
+    <div id="loading" hidden>Carregando mapa&hellip;</div>
+    <div id="legend">
+      <button id="legend-toggle" title="Recolher/expandir a legenda">Legenda &#9660;</button>
+      <div id="legend-items">
+        <span><i class="sw walkable"></i>Andável</span>
+        <span><i class="sw blocked"></i>Não andável</span>
+        <span><i class="sw known"></i>Já mapeado</span>
+        <span><i class="sw player"></i>Jogador</span>
+        <span><i class="sw monster"></i>Monstro</span>
+        <span><i class="sw npc"></i>NPC</span>
+        <span><i class="sw path"></i>Caminho comandado</span>
+        <span><i class="sw route"></i>Rota</span>
+        <span><i class="sw handle"></i>Ponto da rota</span>
+      </div>
+    </div>
+    <div id="route-panel" hidden>
+      <div class="rp-row">
+        <select id="route-select" title="Escolher a rota desta cave"></select>
+        <button id="route-new" title="Criar uma nova rota de patrulha para esta cave">+</button>
+        <button id="route-rename" title="Renomear a rota selecionada">&#9998;</button>
+        <button id="route-del" title="Apagar a rota selecionada">&#128465;</button>
+        <button id="route-help" title="Ajuda: o que cada botão faz">?</button>
+      </div>
+      <div id="route-help-text" hidden>
+        <b>Modos de edição</b> (clique no mapa):
+        <ul>
+          <li><b>Pan</b>: arrastar o mapa, sem editar a rota.</li>
+          <li><b>Adicionar</b>: clique insere um ponto na rota.</li>
+          <li><b>Mover</b>: arraste um ponto para reposicioná-lo.</li>
+          <li><b>Remover</b>: clique num ponto para apagá-lo.</li>
+        </ul>
+        <b>Ações</b>:
+        <ul>
+          <li><b>+</b>: criar uma nova rota.</li>
+          <li><b>&#9998;</b>: renomear a rota selecionada.</li>
+          <li><b>&#128465;</b>: apagar a rota selecionada.</li>
+          <li><b>Recalcular</b>: refaz o caminho denso (A*) a partir dos pontos.</li>
+          <li><b>Salvar</b>: grava os pontos editados no banco.</li>
+          <li><b>Executar</b>: o personagem passa a andar esta rota.</li>
+          <li><b>Parar</b>: interrompe a execução da rota.</li>
+        </ul>
+      </div>
+      <div class="rp-row" id="route-modes">
+        <button data-mode="pan" class="active" title="Arrastar o mapa sem editar a rota">Pan</button>
+        <button data-mode="add" title="Clique no mapa para inserir um ponto na rota">Adicionar</button>
+        <button data-mode="move" title="Arraste um ponto para reposicioná-lo">Mover</button>
+        <button data-mode="remove" title="Clique num ponto para apagá-lo">Remover</button>
+      </div>
+      <div class="rp-row">
+        <button id="route-recalc" title="Refazer o caminho denso (A*) a partir dos pontos atuais">Recalcular</button>
+        <button id="route-save" title="Gravar os pontos editados no banco de dados">Salvar</button>
+      </div>
+      <div class="rp-row">
+        <button id="route-run" title="O personagem passa a andar esta rota">Executar</button>
+        <button id="route-stop" title="Interromper a execução da rota">Parar</button>
+      </div>
+      <div id="route-info">Sem rota.</div>
+    </div>
+    <div id="zoom">
+      <button id="zoom-in" title="Aproximar">+</button>
+      <button id="zoom-out" title="Afastar">&minus;</button>
+      <button id="goto-player" title="Centralizar no jogador">&#8982;</button>
+    </div>
+    <div id="info">Aguardando dados...</div>
+  </main>
+</div>
+<script src="/ui/js/menu.js"></script>
+<script src="/ui/js/notices.js"></script>
+<script src="/ui/js/surroundings.js"></script>
+<script src="/ui/js/route.js"></script>
+<script src="/ui/js/mapview.js"></script>
+<script src="/ui/js/main.js"></script>
+</body>
+</html>

@@ -1,0 +1,10 @@
+Module
+  name: megabrain
+  description: MegaBrain - exploração automática de mapa
+  author: MegaBrain
+  sandboxed: true
+  autoload: true
+  dependencies: [ game_interface ]
+  scripts: [ core/config, core/logger, core/persist, core/collector, core/sender, core/navigator, core/backend, megabrain ]
+  @onLoad: init()
+  @onUnload: terminate()

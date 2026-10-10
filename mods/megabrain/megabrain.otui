@@ -1,0 +1,152 @@
+MegaBrainSwitch < Button
+  height: 18
+  margin-top: 2
+  image-color: green
+  $!on:
+    image-color: red
+
+MegaBrainButton < Button
+  height: 18
+  margin-top: 2
+
+MegaBrainActivation < Panel
+  layout:
+    type: verticalBox
+
+  MegaBrainSwitch
+    id: debugSwitch
+    text: Debug
+
+  MegaBrainSwitch
+    id: exploreSwitch
+    text: Explorar
+
+  MegaBrainSwitch
+    id: routeSwitch
+    text: Rota
+
+  MegaBrainSwitch
+    id: backendSwitch
+    text: Ligar backend
+
+  MegaBrainButton
+    id: openInterface
+    text: Acessar interface
+
+MegaBrainConfig < Panel
+  layout:
+    type: verticalBox
+
+  Label
+    text: "Parar de andar com N monstros:"
+
+  TextEdit
+    id: stopLimit
+    height: 20
+    multiline: false
+    editable: true
+    focusable: true
+
+  Label
+    text: "Retomar ao cair abaixo de M monstros:"
+
+  TextEdit
+    id: resumeLimit
+    height: 20
+    multiline: false
+    editable: true
+    focusable: true
+
+  Label
+    text: "Delay para retomar (ms):"
+
+  TextEdit
+    id: resumeDelay
+    height: 20
+    multiline: false
+    editable: true
+    focusable: true
+
+  Label
+    text: "Espacamento da rota (tiles):"
+
+  TextEdit
+    id: routeSpacing
+    height: 20
+    multiline: false
+    editable: true
+    focusable: true
+
+  MegaBrainSwitch
+    id: autoRouteSwitch
+    text: Auto-rota ao concluir
+
+  MegaBrainButton
+    id: applyConfig
+    text: Aplicar
+
+MainWindow
+  id: megabrainWindow
+  size: 340 300
+  !text: tr('MegaBrain')
+  padding: 30 4 4 4
+
+  TabBar
+    id: tabs
+    anchors.top: parent.top
+    anchors.left: parent.left
+    anchors.right: parent.right
+
+  Panel
+    id: pages
+    anchors.top: tabs.bottom
+    anchors.left: parent.left
+    anchors.right: parent.right
+    anchors.bottom: parent.bottom
+
+  UIButton
+    id: minimizeButton
+    anchors.top: parent.top
+    anchors.right: parent.right
+    margin-top: -26
+    size: 12 12
+    image-size: 14 14
+    image-source: /images/ui/miniwindow_buttons
+    image-clip: 0 0 14 14
+
+    $hover:
+      image-clip: 0 14 14 14
+
+    $pressed:
+      image-clip: 0 28 14 14
+
+  UIButton
+    id: closeButton
+    anchors.top: parent.top
+    anchors.right: minimizeButton.left
+    margin-top: -26
+    margin-right: 2
+    size: 12 12
+    image-size: 14 14
+    image-source: /images/ui/miniwindow_buttons
+    image-clip: 28 0 14 14
+
+    $hover:
+      image-clip: 28 14 14 14
+
+    $pressed:
+      image-clip: 28 28 14 14
+
+  ResizeBorder
+    id: bottomResizeBorder
+    anchors.bottom: parent.bottom
+    anchors.left: parent.left
+    anchors.right: parent.right
+    minimum: 80
+
+  ResizeBorder
+    id: rightResizeBorder
+    anchors.right: parent.right
+    anchors.top: parent.top
+    anchors.bottom: parent.bottom
+    minimum: 140
