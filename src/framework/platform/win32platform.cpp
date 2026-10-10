@@ -55,18 +55,40 @@ void Platform::processArgs(std::vector<std::string>& args)
 
 bool Platform::spawnProcess(std::string process, const std::vector<std::string>& args)
 {
-    std::string commandLine;
-    for (const auto& arg : args)
-        commandLine += fmt::format(" \"{}\"", arg);
-
     stdext::replace_all(process, "/", "\\");
     if (!process.ends_with(".exe"))
         process += ".exe";
 
-    const auto& wfile = stdext::utf8_to_utf16(process);
-    const auto& wcommandLine = stdext::utf8_to_utf16(commandLine);
+    std::string commandLine = fmt::format("\"{}\"", process);
+    for (const auto& arg : args)
+        commandLine += fmt::format(" \"{}\"", arg);
 
-    return reinterpret_cast<size_t>(ShellExecuteW(nullptr, L"open", wfile.data(), wcommandLine.data(), nullptr, SW_SHOWNORMAL)) > 32;
+    auto wcommandLine = stdext::utf8_to_utf16(commandLine);
+
+    STARTUPINFOW si = {};
+    si.cb = sizeof(si);
+    PROCESS_INFORMATION pi = {};
+
+    if (!CreateProcessW(nullptr, wcommandLine.data(), nullptr, nullptr, FALSE,
+                        CREATE_NO_WINDOW, nullptr, nullptr, &si, &pi))
+        return false;
+
+    // Job object: encerra o filho quando o client morrer.
+    static HANDLE jobHandle = nullptr;
+    if (!jobHandle) {
+        jobHandle = CreateJobObjectW(nullptr, nullptr);
+        if (jobHandle) {
+            JOBOBJECT_EXTENDED_LIMIT_INFORMATION info = {};
+            info.BasicLimitInformation.LimitFlags = JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE;
+            SetInformationJobObject(jobHandle, JobObjectExtendedLimitInformation, &info, sizeof(info));
+        }
+    }
+    if (jobHandle)
+        AssignProcessToJobObject(jobHandle, pi.hProcess);
+
+    CloseHandle(pi.hThread);
+    CloseHandle(pi.hProcess);
+    return true;
 }
 
 int Platform::getProcessId()

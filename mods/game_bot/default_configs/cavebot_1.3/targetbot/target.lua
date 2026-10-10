@@ -106,6 +106,7 @@ end)
 config = Config.setup("targetbot_configs", configWidget, "json", function(name, enabled, data)
   if not data then
     ui.status.right:setText("Off")
+    if modules.game_bot then modules.game_bot.targetStatus = "Off" end
     return targetbotMacro.setOff()
   end
   TargetBot.Creature.resetConfigs()
@@ -117,8 +118,10 @@ config = Config.setup("targetbot_configs", configWidget, "json", function(name, 
   -- add configs
   if enabled then
     ui.status.right:setText("On")
+    if modules.game_bot then modules.game_bot.targetStatus = "On" end
   else
     ui.status.right:setText("Off")
+    if modules.game_bot then modules.game_bot.targetStatus = "Off" end
   end
 
   targetbotMacro.setOn(enabled)
@@ -163,6 +166,9 @@ TargetBot.isCaveBotActionAllowed = function()
 end
 
 TargetBot.setStatus = function(text)
+  if modules.game_bot then
+    modules.game_bot.targetStatus = text
+  end
   return ui.status.right:setText(text)
 end
 

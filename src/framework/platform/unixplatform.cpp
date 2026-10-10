@@ -31,6 +31,11 @@
 
 #include <sys/stat.h>
 
+#ifdef __linux__
+#include <sys/prctl.h>
+#include <csignal>
+#endif
+
 #ifdef ANDROID
 #include <errno.h>
 #else
@@ -71,6 +76,12 @@ bool Platform::spawnProcess(std::string process, const std::vector<std::string>&
         return false;
 
     if(pid == 0) {
+#ifdef __linux__
+        // Garante que o filho morra junto com o client (mesmo em crash/SIGKILL).
+        prctl(PR_SET_PDEATHSIG, SIGTERM);
+        if (getppid() == 1)
+            _exit(EXIT_FAILURE);
+#endif
         std::vector<char*> cargs;
         cargs.push_back(const_cast<char*>(process.c_str()));
         for(const auto& arg : args) {
@@ -90,14 +101,14 @@ int Platform::getProcessId()
     return getpid();
 }
 
-bool Platform::isProcessRunning(const std::string_view /*name*/)
+bool Platform::isProcessRunning(const std::string_view name)
 {
-    return false;
+    return system(fmt::format("pgrep -f '{}' > /dev/null 2>&1", name).c_str()) == 0;
 }
 
-bool Platform::killProcess(const std::string_view /*name*/)
+bool Platform::killProcess(const std::string_view name)
 {
-    return false;
+    return system(fmt::format("pkill -f '{}'", name).c_str()) == 0;
 }
 
 std::string Platform::getTempPath()

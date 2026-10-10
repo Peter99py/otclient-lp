@@ -138,6 +138,11 @@ function executeBot(config, storage, tabs, msgCallback, saveConfigCallback, relo
   context.g_platform = {
     openUrl = g_platform.openUrl,
     openDir = g_platform.openDir,
+    getOSName = g_platform.getOSName,
+    spawnProcess = g_platform.spawnProcess,
+    killProcess = g_platform.killProcess,
+    isProcessRunning = g_platform.isProcessRunning,
+    copyFile = g_platform.copyFile,
   }
 
   context.Item = Item
