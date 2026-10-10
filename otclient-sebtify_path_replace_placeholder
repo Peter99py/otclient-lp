@@ -1,0 +1,42 @@
+-- MiniWindow "MegaBrain" — UI separada do Cavebot Híbrido
+-- Vive no painel esquerdo, logo abaixo do botWindow, com toggle próprio.
+-- Pode ser aberto simultaneamente com o CaveBot original (sem competir por espaço).
+-- Container interno tem 4 sub-abas: Status, Config, Rotas, Log.
+--
+-- Padrão copiado de mods/game_bot/bot.otui (MiniWindow + BotTabBar).
+-- Diferenças: nome, ícone, autoOpen, e TabBar interno (hybridTabs).
+
+MiniWindow
+  id: hybridWindow
+  !text: tr('MegaBrain')
+  height: 380
+  width: 220
+  &save: true
+  &autoOpen: 50
+
+  UIWidget
+    id: miniwindowIcon
+    anchors.top: miniwindowHeader.top
+    anchors.left: miniwindowHeader.left
+    margin-top: 2
+    margin-left: 4
+    size: 12 12
+    image-source: /images/topbuttons/cooldowns
+    image-smooth: false
+
+  Label
+    id: miniwindowTitle
+    anchors.top: miniwindowHeader.top
+    anchors.left: miniwindowHeader.left
+    anchors.right: miniwindowHeader.right
+    margin-top: 2
+    margin-left: 20
+    margin-right: 50
+    font: verdana-11px-monochrome
+    height: 13
+    color: #9d9d9dff
+    !text: tr('MegaBrain')
+
+  MiniWindowContents
+    anchors.fill: parent
+    id: hybridContent

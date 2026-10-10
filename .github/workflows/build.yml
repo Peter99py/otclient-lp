@@ -1,0 +1,101 @@
+name: Build (Linux + Windows)
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  # ---------------------------------------------------------------------------
+  # 1) Linux: backend Go + client C++
+  # ---------------------------------------------------------------------------
+  build-linux:
+    name: Linux (backend + client)
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.22'
+
+      - name: Build Go backend (linux)
+        run: |
+          cd mods/megabrain/engine
+          GOOS=linux GOARCH=amd64 go build -o megabrain-engine .
+
+      - name: Setup vcpkg cache
+        uses: actions/cache@v3
+        with:
+          path: |
+            ~/vcpkg
+            ~/vcpkg_installed
+            ~/vcpkg-manifest
+          key: vcpkg-${{ runner.os }}-${{ hashFiles('vcpkg.json') }}
+          restore-keys: |
+            vcpkg-${{ runner.os }}-
+
+      - name: Build client (linux)
+        run: make build-ubuntu
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: otclient-linux
+          path: build/dist/
+
+  # ---------------------------------------------------------------------------
+  # 2) Windows: backend Go + client C++ (só roda depois do Linux)
+  # ---------------------------------------------------------------------------
+  build-windows:
+    name: Windows (backend + client)
+    # Desativado temporariamente. Para reativar, troque `if: false` por `if: true`
+    # (ou remova a linha).
+    if: true
+    needs: build-linux
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.22'
+
+      - name: Build Go backend (windows)
+        shell: bash
+        run: |
+          cd mods/megabrain/engine
+          GOOS=windows GOARCH=amd64 go build -o megabrain-engine.exe .
+
+      - name: Setup vcpkg
+        uses: lukka/run-vcpkg@v11
+        with:
+          vcpkgGitURL: "https://github.com/microsoft/vcpkg.git"
+          vcpkgGitCommitId: cd61e1e26a038e82d6550a3ebbe0fbbfe7da78e3
+
+      - name: Build client (windows)
+        uses: lukka/run-cmake@v10
+        with:
+          configurePreset: windows-release
+          buildPreset: windows-release
+          configurePresetAdditionalArgs: "['-DTOGGLE_BIN_FOLDER=ON', '-DOPTIONS_ENABLE_IPO=OFF', '-DOTCLIENT_BUILD_TESTS=OFF']"
+
+      - name: Package
+        shell: bash
+        run: |
+          mkdir -p dist
+          cp build/windows-release/bin/*.exe dist/ 2>/dev/null || true
+          cp -r data mods modules init.lua otclientrc.lua dist/ 2>/dev/null || true
+          [ -f cacert.pem ] && cp cacert.pem dist/ || true
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: otclient-windows
+          path: dist/

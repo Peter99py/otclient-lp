@@ -20,6 +20,9 @@ vcpkg_installed/
 x64/
 build/
 static/
+# MegaBrain: UI embutida no binário Go (o "static/" acima é para build do VS)
+!mods/megabrain/engine/internal/web/static/
+!mods/megabrain/engine/internal/web/static/**
 [Bb]in/
 [Oo]bj/
 cmake-build-*/
@@ -235,7 +238,6 @@ CMakeCache.txt
 CMakeFiles
 CMakeScripts
 Testing
-Makefile
 cmake_install.cmake
 install_manifest.txt
 compile_commands.json
@@ -243,7 +245,7 @@ CTestTestfile.cmake
 _deps
 
 ## Sublime
-  
+
 # Cache files for Sublime Text
 *.tmlanguage.cache
 *.tmPreferences.cache
@@ -334,3 +336,7 @@ android/build/
 luajit-src/
 CMakeUserPresets.json
 **/.canary-shared-cache/
+
+# MegaBrain: script de cross-compile (o "build/" acima é para build do VS)
+!mods/megabrain/engine/build/
+!mods/megabrain/engine/build/build.sh

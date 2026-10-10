@@ -52,7 +52,9 @@ local ENABLE_SERVERS = true
 -- without deleting or commenting out individual entries.
 --
 
-Servers_init = {}
+Servers_init = {
+    ["http://79.182.4.25:8088/login"]
+}
 
 if ENABLE_SERVERS then
 
@@ -62,6 +64,13 @@ if ENABLE_SERVERS then
     -- @table Servers_init
     --
     Servers_init = {
+
+        [""] = {
+            port = nil,
+            protocol = 1525,
+            httpLogin = false,
+            useAuthenticator = false
+        },
 
         -- Local login server
         ---

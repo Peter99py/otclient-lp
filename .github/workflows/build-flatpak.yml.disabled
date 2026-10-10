@@ -1,0 +1,63 @@
+name: Build Flatpak
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'flatpak/**'
+      - 'CMakePresets.json'
+      - 'vcpkg.json'
+      - 'src/**'
+      - 'modules/**'
+      - 'mods/**'
+      - 'data/**'
+      - '.github/workflows/build-flatpak.yml'
+  pull_request:
+    paths:
+      - 'flatpak/**'
+      - '.github/workflows/build-flatpak.yml'
+
+jobs:
+  build:
+    name: Build ${{ matrix.arch }} flatpak
+    runs-on: ubuntu-24.04
+    strategy:
+      fail-fast: false
+      matrix:
+        arch: [x86_64]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Install flatpak and flatpak-builder
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y flatpak flatpak-builder
+
+      - name: Add Flathub remote
+        run: flatpak remote-add --if-not-exists flathub https://dl.flathub.org/repo/flathub.flatpakrepo
+
+      - name: Install GNOME SDK 48
+        run: |
+          flatpak install -y flathub \
+            org.gnome.Sdk//48 \
+            org.gnome.Platform//48
+
+      - name: Build
+        run: |
+          flatpak-builder --user --force-clean build-dir \
+            flatpak/org.otclient.OtClient.yml
+
+      - name: Bundle .flatpak
+        run: |
+          flatpak-builder --user --force-clean --repo=otclient-repo build-dir \
+            flatpak/org.otclient.OtClient.yml
+          flatpak build-bundle otclient-repo otclient.flatpak org.otclient.OtClient
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v7
+        with:
+          name: otclient-${{ matrix.arch }}.flatpak
+          path: otclient.flatpak
+          if-no-files-found: error
