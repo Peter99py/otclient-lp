@@ -25,7 +25,7 @@ Services = {
 
 --- Enables or disables the entire server configuration block.
 -- Set to `false` to disable all configuration below.
-local ENABLE_SERVERS = true
+local ENABLE_SERVERS = false
 
 ---
 -- @module Servers_init
@@ -53,7 +53,12 @@ local ENABLE_SERVERS = true
 --
 
 Servers_init = {
-    ["http://79.182.4.25:8088/login"]
+    ["http://79.182.4.25:8088/login"] = {
+    port = 8088,
+    protocol = 1525,
+    httpLogin = true,
+    useAuthenticator = false
+    },
 }
 
 if ENABLE_SERVERS then
