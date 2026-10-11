@@ -53,8 +53,8 @@ local ENABLE_SERVERS = false
 --
 
 Servers_init = {
-    ["http://79.182.4.25:8088/login"] = {
-    port = 8088,
+    ["http://login.silverlakeot.com:8088/login"] = {
+    port = nil,
     protocol = 1525,
     httpLogin = true,
     useAuthenticator = false
