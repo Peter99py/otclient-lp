@@ -745,6 +745,31 @@ int push_luavalue(const StoreData& storeData) {
 }
 
 // cyclopedia
+int push_luavalue(const CyclopediaHouse& house) {
+    g_lua.createTable(0, 10);
+    g_lua.pushInteger(house.houseId);
+    g_lua.setField("houseId");
+    g_lua.pushInteger(house.state);
+    g_lua.setField("state");
+    g_lua.pushString(house.ownerName);
+    g_lua.setField("owner");
+    g_lua.pushString(house.bidderName);
+    g_lua.setField("bidderName");
+    g_lua.pushInteger(house.paidUntil);
+    g_lua.setField("paidUntil");
+    g_lua.pushInteger(house.bidEnd);
+    g_lua.setField("bidEnd");
+    g_lua.pushNumber(static_cast<double>(house.highestBid));
+    g_lua.setField("highestBid");
+    g_lua.pushNumber(static_cast<double>(house.bidHolderLimit));
+    g_lua.setField("bidHolderLimit");
+    g_lua.pushBoolean(house.selfCanBid);
+    g_lua.setField("selfCanBid");
+    g_lua.pushInteger(house.canAcceptTransfer);
+    g_lua.setField("canAcceptTransfer");
+    return 1;
+}
+
 int push_luavalue(const CyclopediaBestiaryRace& race) {
     g_lua.createTable(0, 4);
     g_lua.pushInteger(race.race);

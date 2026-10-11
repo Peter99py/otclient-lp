@@ -71,6 +71,9 @@ int push_luavalue(const HomeOffer& homeOffer);
 int push_luavalue(const Banner& banner);
 int push_luavalue(const StoreData& storeData);
 
+// cyclopedia houses
+int push_luavalue(const CyclopediaHouse& house);
+
 // item inspection
 int push_luavalue(const ItemInspectionData& data);
 int push_luavalue(const InspectionInventoryItem& entry);

@@ -117,7 +117,9 @@ function controllerCyclopedia:onGameStart()
             -- charms
             onUpdateBestiaryCharmsData = Cyclopedia.loadCharms,
             -- items
-            onParseItemDetail = Cyclopedia.loadItemDetail
+            onParseItemDetail = Cyclopedia.loadItemDetail,
+            -- houses
+            onParseCyclopediaHouseList = Cyclopedia.loadHouseList
         })
 
         --[[===================================================

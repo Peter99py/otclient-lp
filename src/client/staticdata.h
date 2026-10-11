@@ -479,6 +479,20 @@ struct StoreData
     std::vector<std::string> menuFilter;
 };
 
+struct CyclopediaHouse
+{
+    uint32_t houseId = 0;
+    uint8_t state = 0;
+    std::string ownerName;
+    std::string bidderName;
+    uint32_t paidUntil = 0;
+    uint32_t bidEnd = 0;
+    uint64_t highestBid = 0;
+    uint64_t bidHolderLimit = 0;
+    bool selfCanBid = false;
+    uint8_t canAcceptTransfer = 0;
+};
+
 struct CyclopediaCharacterGeneralStats
 {
     uint64_t experience;

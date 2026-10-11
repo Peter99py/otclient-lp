@@ -1,5 +1,22 @@
 local UI = nil
 
+-- Catálogo de casas do client (name/description/rent/beds/sqm/GH/shop), indexado pelo
+-- clientId que o servidor envia no GameServerCyclopediaHouseList (0xC7).
+-- Sem esse arquivo a lista ainda é montada, porém com nomes genéricos ("House #<id>").
+pcall(function()
+    if not HOUSE then
+        HOUSE = {}
+        if g_resources and g_resources.fileExists("/data/json/houses.json") then
+            local result = json.decode(g_resources.readFileContents("/data/json/houses.json"))
+            if type(result) == "table" then
+                for k, v in pairs(result) do
+                    HOUSE[tonumber(k) or k] = v
+                end
+            end
+        end
+    end
+end)
+
 function showHouse()
     UI = g_ui.loadUI("house", contentContainer)
     UI:show()
@@ -1178,7 +1195,7 @@ function Cyclopedia.reloadHouseList()
     end
 end
 
-function Cyclopedia.loadHouseList(data, other)
+function Cyclopedia.loadHouseList(data)
     if Cyclopedia.House.ignore then
         Cyclopedia.House.ignore = false
         return
@@ -1186,47 +1203,52 @@ function Cyclopedia.loadHouseList(data, other)
 
     local houses = {}
 
-    if not table.empty(data) then
-        for i = 0, #data do
-            local value = data[i]
-            local house = HOUSE[value.houseId]
-            if house then
-                local isGuildHall = house.GH > 0 and true or false
-                local data_t = {
-                    id = value.houseId,
-                    name = house.name,
-                    description = house.description,
-                    rent = house.rent,
-                    beds = house.beds,
-                    sqm = house.sqm,
-                    gh = isGuildHall,
-                    shop = house.shop > 0 and true or false,
-                    visible = not isGuildHall,
-                    state = value.state,
-                    owner = other[i].owner and other[i].owner or "?",
-                    isYourBid = data[i].bidHolderLimit and data[i].bidHolderLimit > 0 and true or false,
-                    hasBid = data[i].bidEnd and data[i].bidEnd > 0 and true or false,
-                    bidEnd = data[i].bidEnd and data[i].bidEnd or nil,
-                    hightestBid = data[i].hightestBid and data[i].hightestBid or nil,
-                    bidName = other[i].bidName and other[i].bidName or nil,
-                    bidHolderLimit = data[i].bidHolderLimit and data[i].bidHolderLimit or nil,
-                    canBid = data[i].selfCanBid,
-                    rented = data[i].state == 2 and true or false,
-                    paidUntil = data[i].paidUntil and data[i].paidUntil or nil,
-                    isYourOwner = other[i].owner and other[i].owner:lower() == g_game.getLocalPlayer():getName():lower() and
-                        true or false,
-                    inTransfer = data[i].state == 3 and true or false,
-                    transferName = other[i].transferPlayer and other[i].transferPlayer or nil,
-                    transferTime = data[i].time and data[i].time or 0,
-                    transferValue = data[i].transferValue and data[i].transferValue or 0,
-                    isTransferOwner = data[i].hasTransferOwner and data[i].hasTransferOwner > 0 and true or false,
-                    canAcceptTransfer = data[i].canAcceptTransfer and data[i].canAcceptTransfer or 0
-                }
+    if data and not table.empty(data) then
+        for _, value in ipairs(data) do
+            local house = HOUSE[value.houseId] or {
+                name = "House #" .. tostring(value.houseId),
+                description = "",
+                rent = 0,
+                beds = 0,
+                sqm = 0,
+                GH = 0,
+                shop = 0
+            }
 
-                table.insert(houses, data_t)
-            end
+            local isGuildHall = (house.GH or 0) > 0
+            local owner = value.owner ~= "" and value.owner or "?"
+
+            table.insert(houses, {
+                id = value.houseId,
+                name = house.name,
+                description = house.description or "",
+                rent = tostring(house.rent or 0),
+                beds = house.beds or 0,
+                sqm = house.sqm or 0,
+                gh = isGuildHall,
+                shop = (house.shop or 0) > 0,
+                visible = not isGuildHall,
+                state = value.state,
+                owner = owner,
+                isYourBid = value.bidHolderLimit > 0,
+                hasBid = value.bidEnd > 0,
+                bidEnd = value.bidEnd > 0 and value.bidEnd or nil,
+                hightestBid = value.highestBid > 0 and value.highestBid or nil,
+                bidName = value.bidderName ~= "" and value.bidderName or nil,
+                bidHolderLimit = value.bidHolderLimit > 0 and value.bidHolderLimit or nil,
+                canBid = value.selfCanBid,
+                rented = value.state == 2,
+                paidUntil = value.paidUntil > 0 and value.paidUntil or nil,
+                isYourOwner = value.owner ~= "" and value.owner:lower() == g_game.getLocalPlayer():getName():lower(),
+                inTransfer = value.state == 3,
+                transferName = value.bidderName ~= "" and value.bidderName or nil,
+                transferTime = 0,
+                transferValue = 0,
+                isTransferOwner = value.canAcceptTransfer > 0,
+                canAcceptTransfer = value.canAcceptTransfer or 0
+            })
         end
-    else
+    elseif UI then
         UI.ListBase.AuctionList:destroyChildren()
     end
 
@@ -1235,18 +1257,24 @@ function Cyclopedia.loadHouseList(data, other)
     end)
 
     Cyclopedia.House.Data = houses
-    Cyclopedia.reloadHouseList()
+
+    if UI then
+        Cyclopedia.reloadHouseList()
+    end
 end
 
 function Cyclopedia.selectTown(widget, text, type)
-    local name = text
+    type = type or 0
+    local name = text or ""
+
     if type ~= 0 then
-        -- g_game.requestShowHouses(name)
         Cyclopedia.House.lastTown = name
     else
-        -- g_game.requestShowHouses("")
         Cyclopedia.House.lastTown = ""
     end
+
+    -- Pede a lista de casas por cidade (opcode 0xAD, actionType 0).
+    g_game.sendCyclopediaHouseAuction(0, 0, 0, 0, Cyclopedia.House.lastTown)
 end
 
 function Cyclopedia.selectHouse(widget)

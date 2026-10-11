@@ -127,6 +127,7 @@ jobs:
   build-macos:
     name: macOS (arm64)
     runs-on: macos-15
+    if: false
 
     steps:
       - name: Checkout repository

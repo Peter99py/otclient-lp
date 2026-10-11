@@ -5210,30 +5210,37 @@ void ProtocolGame::parseCyclopediaHousesInfo(const InputMessagePtr& msg)
 
 void ProtocolGame::parseCyclopediaHouseList(const InputMessagePtr& msg)
 {
-    const uint16_t housesCount = msg->getU16(); // housesCount
+    const uint16_t housesCount = msg->getU16();
+    std::vector<CyclopediaHouse> houses;
+    houses.reserve(housesCount);
+
     for (auto i = 0; i < housesCount; ++i) {
-        msg->getU32(); // clientId
+        CyclopediaHouse house;
+        house.houseId = msg->getU32(); // clientId
         msg->getU8(); // 0x00 = Renovation, 0x01 = Available
 
         const auto type = static_cast<Otc::CyclopediaHouseState_t>(msg->getU8());
+        house.state = static_cast<uint8_t>(type);
+
         switch (type) {
             case Otc::CYCLOPEDIA_HOUSE_STATE_AVAILABLE: {
-                std::string bidderName = msg->getString();
+                house.bidderName = msg->getString();
                 const auto isBidder = static_cast<bool>(msg->getU8());
-                msg->getU8(); // disableIndex
+                const auto disableIndex = msg->getU8(); // BidErrorMessage (0 = pode dar lance)
+                house.selfCanBid = disableIndex == 0;
 
-                if (!bidderName.empty()) {
-                    msg->getU32(); // bidEndDate
-                    msg->getU64(); // highestBid
+                if (!house.bidderName.empty()) {
+                    house.bidEnd = msg->getU32();
+                    house.highestBid = msg->getU64();
                     if (isBidder) {
-                        msg->getU64(); // bidHolderLimit
+                        house.bidHolderLimit = msg->getU64();
                     }
                 }
                 break;
             }
             case Otc::CYCLOPEDIA_HOUSE_STATE_RENTED: {
-                msg->getString(); // ownerName
-                msg->getU32(); // paidUntil
+                house.ownerName = msg->getString();
+                house.paidUntil = msg->getU32();
 
                 const auto isRented = static_cast<bool>(msg->getU8());
                 if (isRented) {
@@ -5243,21 +5250,21 @@ void ProtocolGame::parseCyclopediaHouseList(const InputMessagePtr& msg)
                 break;
             }
             case Otc::CYCLOPEDIA_HOUSE_STATE_TRANSFER: {
-                msg->getString(); // ownerName
-                msg->getU32(); // paidUntil
+                house.ownerName = msg->getString();
+                house.paidUntil = msg->getU32();
                 const auto isOwner = static_cast<bool>(msg->getU8());
                 if (isOwner) {
                     msg->getU8(); // unknown
                     msg->getU8(); // unknown
                 }
-                msg->getU32(); // bidEndDate
-                msg->getString(); // bidderName
+                house.bidEnd = msg->getU32();
+                house.bidderName = msg->getString();
                 msg->getU8(); // unknown
                 msg->getU64(); // internalBid
 
                 const auto isNewOwner = static_cast<bool>(msg->getU8());
                 if (isNewOwner) {
-                    msg->getU8(); // acceptTransferError
+                    house.canAcceptTransfer = msg->getU8(); // acceptTransferError
                     msg->getU8(); // rejectTransferError
                 }
 
@@ -5267,24 +5274,28 @@ void ProtocolGame::parseCyclopediaHouseList(const InputMessagePtr& msg)
                 break;
             }
             case Otc::CYCLOPEDIA_HOUSE_STATE_MOVEOUT: {
-                msg->getString(); // ownerName
-                msg->getU32(); // paidUntil
+                house.ownerName = msg->getString();
+                house.paidUntil = msg->getU32();
 
                 const auto isOwner = static_cast<bool>(msg->getU8());
                 if (isOwner) {
                     msg->getU8(); // unknown
                     msg->getU8(); // unknown
-                    msg->getU32(); // bidEndDate
+                    house.bidEnd = msg->getU32();
                     msg->getU8(); // unknown
                 } else {
-                    msg->getU32(); // bidEndDate
+                    house.bidEnd = msg->getU32();
                 }
-
                 break;
             }
+            default:
+                break;
         }
+
+        houses.push_back(std::move(house));
     }
-    // TO-DO Lua - Otui
+
+    g_lua.callGlobalField("g_game", "onParseCyclopediaHouseList", houses);
 }
 
 void ProtocolGame::parseSupplyStash(const InputMessagePtr& msg)
