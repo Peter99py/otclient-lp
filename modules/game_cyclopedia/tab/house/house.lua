@@ -3,7 +3,7 @@ local UI = nil
 -- Catalogo de casas (name/description/rent/beds/sqm/GH/shop), indexado pelo clientId
 -- que o servidor envia no GameServerCyclopediaHouseList (0xC7).
 -- Publicado pelo servidor em JSON e buscado por HTTP; caches locais = fallback offline.
-local HOUSE_CATALOG_URL = "https://www.silverlakeot.com/houses.json"
+local HOUSE_CATALOG_URL = "https://www.silverlakeot.com/house-catalog"
 local HOUSE_CACHE_FILE = "/houses_cache.json"        -- copia baixada (write dir)
 local HOUSE_BUNDLED_FILE = "/data/json/houses.json"  -- copia embutida no client
 
