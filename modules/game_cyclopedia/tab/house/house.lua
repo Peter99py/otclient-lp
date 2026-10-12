@@ -225,7 +225,7 @@ function Cyclopedia.refreshAuctionText(data)
                                                   "\n{   Highest Bid: , #909090}")
     UI.LateralBase.highestBid:setVisible(true)
     UI.LateralBase.highestBidGold:setVisible(true)
-    UI.LateralBase.highestBid:setText(comma_value(data.hightestBid))
+    UI.LateralBase.highestBid:setText(comma_value(data.hightestBid or 0))
 
     if data.isYourBid then
         UI.LateralBase.yourLimitLabel:setVisible(true)
@@ -966,7 +966,7 @@ function Cyclopedia.bidHouse(widget)
     }, {
         id = "highestBid",
         name = "Highest Bid: ",
-        value = house.hightestBid
+        value = house.hightestBid or 0
     }}
 
     for _, value in ipairs(labels) do
@@ -1284,7 +1284,7 @@ function Cyclopedia.reloadHouseList()
                         end
 
                         widget.status:setColoredText("{Status:  , #909090}{auctioned, #00F000} (Bid: " ..
-                                                         data.hightestBid .. " Ends in: " .. format(data.bidEnd) .. ")")
+                                                         (data.hightestBid or 0) .. " Ends in: " .. format(data.bidEnd) .. ")")
                     else
                         widget.status:setColoredText("{Status:  , #909090}{auctioned, #00F000} (no bid yet)")
                     end
@@ -1614,7 +1614,6 @@ function Cyclopedia.selectHouse(widget)
             button:setEnabled(false)
             button:setTooltip(Cyclopedia.HouseBidDenyReason[widget.data.canBid] or
                                   string.format("You cannot bid for this house (code %d).", widget.data.canBid))
-            button:setTooltipAlign(AlignTopLeft)
         end
     end
 

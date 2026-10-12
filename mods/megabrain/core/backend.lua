@@ -59,6 +59,11 @@ function MegaBrain.Backend.getUrl()
     return "http://127.0.0.1:" .. port
 end
 
+-- Verdadeiro enquanto o processo do backend estiver rodando.
+function MegaBrain.Backend.isRunning()
+    return g_platform.isProcessRunning(binName())
+end
+
 function MegaBrain.Backend.start()
     MegaBrain.Logger.debugLog("Iniciando backend. OS=" .. g_platform.getOSName())
     local bin = sourceBin()

@@ -78,6 +78,11 @@ end
 local function onTick()
     saveWindowState()
 
+    -- O MegaBrain só atua com o backend ligado (switch "Ativar Megabrain").
+    if not MegaBrain.Backend.isRunning() then
+        return
+    end
+
     local payload = MegaBrain.Collector.collect()
     if not payload then
         return
@@ -170,8 +175,40 @@ local function bindUI()
     bindSwitch(activationPanel, "exploreSwitch", function(on)
         MegaBrain.Navigator.setExploring(on)
     end)
+
+    local function setSwitch(id, on)
+        local sw = activationPanel:getChildById(id)
+        if sw then
+            sw:setOn(on)
+        end
+    end
+
+    -- Rota só é válida em cave totalmente explorada: cai para Explorar e desliga Rota.
+    local function fallbackToExplore()
+        setSwitch("routeSwitch", false)
+        MegaBrain.Navigator.setRouteMode(false)
+        setSwitch("exploreSwitch", true)
+        MegaBrain.Navigator.setExploring(true)
+    end
+
     bindSwitch(activationPanel, "routeSwitch", function(on)
-        MegaBrain.Navigator.setRouteMode(on)
+        if not on then
+            MegaBrain.Navigator.setRouteMode(false)
+            return
+        end
+        -- Antes de ligar a Rota, confirma com o backend que não há fronteira a explorar.
+        HTTP.getJSON(MegaBrain.Config.commandUrl, function(data, err)
+            if err or not data then
+                -- Backend indisponível: não dá para validar a exploração.
+                setSwitch("routeSwitch", false)
+                return
+            end
+            if data.done then
+                MegaBrain.Navigator.setRouteMode(true)
+            else
+                fallbackToExplore()
+            end
+        end)
     end)
 
     -- Exploração concluída: desliga Explorar e liga Rota (não ficar parado).

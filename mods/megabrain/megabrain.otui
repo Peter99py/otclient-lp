@@ -27,7 +27,7 @@ MegaBrainActivation < Panel
 
   MegaBrainSwitch
     id: backendSwitch
-    text: Ligar backend
+    text: Ativar Megabrain
 
   MegaBrainButton
     id: openInterface
