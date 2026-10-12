@@ -184,6 +184,70 @@ Cyclopedia.SortList = {
     { Title = "Sort by auction end" }
 }
 
+-- Motivos (BidErrorMessage do servidor) pelos quais o personagem nao pode dar lance.
+Cyclopedia.HouseBidDenyReason = {
+    [3] = "Not available on Rookgaard.",
+    [5] = "Premium account required.",
+    [6] = "Guildhall bid not allowed.",
+    [7] = "Your account already holds another house bid.",
+    [17] = "Bank balance too low for bid and first rent.",
+    [21] = "Guild bank balance too low for bid and rent.",
+    [24] = "Internal error. Try again later."
+}
+
+-- Tempo restante legivel ate um timestamp (fim do leilao).
+local function formatRemaining(timestamp)
+    local difference = timestamp - os.time()
+    if difference <= 0 then
+        return "ending now"
+    end
+    local days = math.floor(difference / 86400)
+    local hours = math.floor(difference % 86400 / 3600)
+    local minutes = math.floor(difference % 3600 / 60)
+    if days > 0 then
+        return string.format("%dd %02dh %02dmin", days, hours, minutes)
+    end
+    return string.format("%02dh %02dmin", hours, minutes)
+end
+
+-- (Re)desenha o bloco do leilao no painel de detalhe, com o tempo restante atualizado.
+function Cyclopedia.refreshAuctionText(data)
+    if not UI or not data or not data.hasBid then
+        return
+    end
+
+    -- "Highest Bid:" precisa continuar sendo a ultima linha: o label highestBid
+    -- esta ancorado em AuctionText.bottom.
+    local date = string.format("%s %s", os.date("%b %d, %H:%M", data.bidEnd), "CET")
+    UI.LateralBase.AuctionText:setColoredText("{Hightest Bidder: , #909090}" .. (data.bidName or "?") ..
+                                                  "\n{      End Time: , #909090}" .. date ..
+                                                  "\n{    Remaining : , #909090}" .. formatRemaining(data.bidEnd) ..
+                                                  "\n{   Highest Bid: , #909090}")
+    UI.LateralBase.highestBid:setVisible(true)
+    UI.LateralBase.highestBidGold:setVisible(true)
+    UI.LateralBase.highestBid:setText(comma_value(data.hightestBid))
+
+    if data.isYourBid then
+        UI.LateralBase.yourLimitLabel:setVisible(true)
+        UI.LateralBase.yourLimitBid:setVisible(true)
+        UI.LateralBase.yourLimitBid:setText(comma_value(data.bidHolderLimit))
+        UI.LateralBase.yourLimitBidGold:setVisible(true)
+    end
+end
+
+-- Contagem regressiva do leilao selecionado; encerra quando nao ha mais leilao visivel.
+function Cyclopedia.updateAuctionCountdown()
+    local house = Cyclopedia.House.lastSelectedHouse
+    if not UI or not UI:isVisible() or not house or not house.data or not house.data.hasBid then
+        if Cyclopedia.House.countdownEvent then
+            removeEvent(Cyclopedia.House.countdownEvent)
+            Cyclopedia.House.countdownEvent = nil
+        end
+        return
+    end
+    Cyclopedia.refreshAuctionText(house.data)
+end
+
 local function resetButtons()
     if UI.LateralBase:getChildById("bidButton") then
         UI.LateralBase:getChildById("bidButton"):destroy()
@@ -270,6 +334,21 @@ function Cyclopedia.houseMessage(houseId, type, message)
                 UI.bidArea:setVisible(false)
                 Cyclopedia.Toggle(true, false)
             end
+        elseif message == 1 then
+            -- LowerBid: o lance foi registrado, mas nao e o maior.
+            confirmWindow = displayGeneralBox(tr("Summary"), tr(
+                "Your bid was registered, but it is not the highest one. Raise your bid to become the highest bidder."),
+                {
+                    {
+                        text = tr("Ok"),
+                        callback = yesCallback
+                    },
+                    anchor = AnchorHorizontalCenter
+                }, yesCallback)
+
+            UI.ListBase:setVisible(true)
+            UI.bidArea:setVisible(false)
+            Cyclopedia.Toggle(true, false)
         elseif message == 17 then
             confirmWindow = displayGeneralBox(tr("Summary"), tr(
                 "Bid failed.\nYour character's bank acocunt balance is too low to pay the bid and the rent for the first month."),
@@ -1211,6 +1290,10 @@ function Cyclopedia.reloadHouseList()
                     end
                 elseif data.state == 2 then
                     widget.status:setColoredText("{Status:  , #909090}rented by " .. data.owner)
+                elseif data.state == 3 then
+                    widget.status:setColoredText("{Status:  , #909090}{pending transfer, #F0A000}")
+                elseif data.state == 4 then
+                    widget.status:setColoredText("{Status:  , #909090}move out pending")
                 end
 
                 widget.onClick = Cyclopedia.selectHouse
@@ -1304,7 +1387,7 @@ function Cyclopedia.loadHouseList(data)
                 state = value.state,
                 owner = owner,
                 isYourBid = value.bidHolderLimit > 0,
-                hasBid = value.bidEnd > 0,
+                hasBid = value.state == 0 and value.bidEnd > 0,
                 bidEnd = value.bidEnd > 0 and value.bidEnd or nil,
                 hightestBid = value.highestBid > 0 and value.highestBid or nil,
                 bidName = value.bidderName ~= "" and value.bidderName or nil,
@@ -1315,7 +1398,7 @@ function Cyclopedia.loadHouseList(data)
                 isYourOwner = value.owner ~= "" and value.owner:lower() == g_game.getLocalPlayer():getName():lower(),
                 inTransfer = value.state == 3,
                 transferName = value.bidderName ~= "" and value.bidderName or nil,
-                transferTime = 0,
+                transferTime = value.bidEnd > 0 and value.bidEnd or 0,
                 transferValue = 0,
                 isTransferOwner = value.canAcceptTransfer > 0,
                 canAcceptTransfer = value.canAcceptTransfer or 0
@@ -1395,24 +1478,12 @@ function Cyclopedia.selectHouse(widget)
 
     if widget.data.hasBid then
         UI.LateralBase.AuctionLabel:setText("Auction")
+        Cyclopedia.refreshAuctionText(widget.data)
 
-        local formattedDate = os.date("%b %d, %H:%M", widget.data.bidEnd)
-        local date = string.format("%s %s", formattedDate, "CET")
-
-        UI.LateralBase.AuctionText:setColoredText("{Hightest Bidder: , #909090}" .. widget.data.bidName ..
-                                                      "\n{      End Time: , #909090}" .. date ..
-                                                      "\n{   Highest Bid: , #909090}")
-        UI.LateralBase.highestBid:setVisible(true)
-        UI.LateralBase.highestBidGold:setVisible(true)
-        UI.LateralBase.highestBid:setText(comma_value(widget.data.hightestBid))
-
-        if widget.data.isYourBid then
-            UI.LateralBase.yourLimitLabel:setVisible(true)
-            UI.LateralBase.yourLimitBid:setVisible(true)
-            UI.LateralBase.yourLimitBid:setText(comma_value(widget.data.bidHolderLimit))
-            UI.LateralBase.yourLimitBidGold:setVisible(true)
+        if not Cyclopedia.House.countdownEvent then
+            Cyclopedia.House.countdownEvent = cycleEvent(Cyclopedia.updateAuctionCountdown, 1000)
         end
-    elseif widget.data.rented or widget.data.inTransfer then
+    elseif widget.data.rented or widget.data.inTransfer or widget.data.state == 4 then
         local formattedDate = os.date("%b %d, %H:%M", widget.data.paidUntil)
         local date = string.format("%s %s", formattedDate, "CET")
 
@@ -1428,14 +1499,26 @@ function Cyclopedia.selectHouse(widget)
             UI.LateralBase.subAuctionText:setVisible(true)
             UI.LateralBase.subAuctionText:setColoredText("{      New Owner:  , #909090}" .. widget.data.transferName ..
                                                              "\n{                Date:  , #909090}" .. date)
-            UI.LateralBase.transferLabel:setVisible(true)
-            UI.LateralBase.transferValue:setVisible(true)
-            UI.LateralBase.transferGold:setVisible(true)
-            UI.LateralBase.transferValue:setText(comma_value(widget.data.transferValue))
+            if widget.data.transferValue and widget.data.transferValue > 0 then
+                UI.LateralBase.transferLabel:setVisible(true)
+                UI.LateralBase.transferValue:setVisible(true)
+                UI.LateralBase.transferGold:setVisible(true)
+                UI.LateralBase.transferValue:setText(comma_value(widget.data.transferValue))
+            end
         end
     else
         UI.LateralBase.AuctionLabel:setText("Auction")
         UI.LateralBase.AuctionText:setText("There is no bid so far.\nBe the first to bid on this house.")
+    end
+
+    -- Motivo pelo qual o personagem nao pode dar lance (BidErrorMessage != 0).
+    if widget.data.state == 0 and widget.data.canBid and widget.data.canBid ~= 0 then
+        local reason = Cyclopedia.HouseBidDenyReason[widget.data.canBid] or
+                           string.format("You cannot bid for this house (code %d).", widget.data.canBid)
+        UI.LateralBase.subAuctionLabel:setText("Cannot Bid")
+        UI.LateralBase.subAuctionLabel:setVisible(true)
+        UI.LateralBase.subAuctionText:setColoredText("{Reason: , #909090}" .. reason)
+        UI.LateralBase.subAuctionText:setVisible(true)
     end
 
     if widget.data.rented then
@@ -1527,14 +1610,11 @@ function Cyclopedia.selectHouse(widget)
         if widget.data.canBid == 0 then
             button:setEnabled(true)
             button:setTooltip("")
-        elseif widget.data.canBid == 11 then
-            button:setTooltip(
-                "A character of your account already holds the highest bid for \nanother house. You may olny bid for one house at the same time.")
-            button:setTooltipAlign(AlignTopLeft)
-            button:setEnabled(false)
         else
             button:setEnabled(false)
-            button:setTooltip("")
+            button:setTooltip(Cyclopedia.HouseBidDenyReason[widget.data.canBid] or
+                                  string.format("You cannot bid for this house (code %d).", widget.data.canBid))
+            button:setTooltipAlign(AlignTopLeft)
         end
     end
 
