@@ -139,6 +139,14 @@ function showHouse()
     g_game.sendCyclopediaHouseAuction(0, 0, 0, 0, town)
 end
 
+-- Compat: o modulo chama Cyclopedia.Toggle(...) apos acoes de casa; essa funcao
+-- nao existe neste fork, entao reexibe/atualiza a aba Houses.
+function Cyclopedia.Toggle(show, backButtonPress)
+    if show then
+        SelectWindow("houses", backButtonPress)
+    end
+end
+
 Cyclopedia.House = {}
 Cyclopedia.StateList = {
     { Title = "All States" },
@@ -276,6 +284,10 @@ function Cyclopedia.houseMessage(houseId, type, message)
             UI.ListBase:setVisible(true)
             UI.bidArea:setVisible(false)
             Cyclopedia.Toggle(true, false)
+        else
+            displayErrorBox(tr("Bid"), tr("Your bid failed (code %d).", message))
+            UI.ListBase:setVisible(true)
+            UI.bidArea:setVisible(false)
         end
     elseif type == 2 then
         if message == 0 then
@@ -386,9 +398,8 @@ function Cyclopedia.rejectTransfer()
                 Cyclopedia.Toggle(true, false, 5)
             end
 
-            g_game.requestRejectHouseTransfer(house.id)
-
-            Cyclopedia.House.ignore = true
+            -- 7 = CYCLOPEDIA_HOUSE_TYPE_REJECT_TRANSFER
+            g_game.sendCyclopediaHouseAuction(7, house.id, 0, 0, "")
             --[[
             if Cyclopedia.House.lastTown then
                 g_game.requestShowHouses(Cyclopedia.House.lastTown)
@@ -461,8 +472,8 @@ function Cyclopedia.acceptTransfer()
                 Cyclopedia.Toggle(true, false, 5)
             end
 
-            g_game.requestAcceptHouseTransfer(house.id)
-            Cyclopedia.House.ignore = true
+            -- 6 = CYCLOPEDIA_HOUSE_TYPE_ACCEPT_TRANSFER
+            g_game.sendCyclopediaHouseAuction(6, house.id, 0, 0, "")
 
             -- g_game.requestShowHouses("")
             UI.TopBase.StatesOption:setOption("All States", true)
@@ -529,9 +540,8 @@ function Cyclopedia.cancelTransfer()
                 Cyclopedia.Toggle(true, false, 5)
             end
 
-            g_game.requestCancelHouseTransfer(house.id)
-
-            Cyclopedia.House.ignore = true
+            -- 5 = CYCLOPEDIA_HOUSE_TYPE_CANCEL_TRANSFER
+            g_game.sendCyclopediaHouseAuction(5, house.id, 0, 0, "")
             --[[
             if Cyclopedia.House.lastTown then
                 g_game.requestShowHouses(Cyclopedia.House.lastTown)
@@ -640,9 +650,8 @@ function Cyclopedia.transferHouse()
                 Cyclopedia.Toggle(true, false, 5)
             end
 
-            g_game.requestTransferHouse(house.id, transfer, tonumber(value))
-
-            Cyclopedia.House.ignore = true
+            -- 3 = CYCLOPEDIA_HOUSE_TYPE_TRANSFER
+            g_game.sendCyclopediaHouseAuction(3, house.id, timestemp, tonumber(value), transfer)
             --[[
             if Cyclopedia.House.lastTown then
                 g_game.requestShowHouses(Cyclopedia.House.lastTown)
@@ -782,7 +791,8 @@ function Cyclopedia.moveOutHouse()
                 Cyclopedia.Toggle(true, false, 5)
             end
 
-            g_game.requestMoveOutHouse(house.id)
+            -- 2 = CYCLOPEDIA_HOUSE_TYPE_MOVEOUT
+            g_game.sendCyclopediaHouseAuction(2, house.id, 0, 0, "")
         end
 
         local function noCallback()
@@ -1046,7 +1056,8 @@ function Cyclopedia.bidHouse(widget)
                 Cyclopedia.Toggle(true, false, 5)
             end
 
-            g_game.requestBidHouse(house.id, value)
+            -- 1 = CYCLOPEDIA_HOUSE_TYPE_BID
+            g_game.sendCyclopediaHouseAuction(1, house.id, 0, value, "")
         end
 
         local function noCallback()
@@ -1298,7 +1309,7 @@ function Cyclopedia.loadHouseList(data)
                 hightestBid = value.highestBid > 0 and value.highestBid or nil,
                 bidName = value.bidderName ~= "" and value.bidderName or nil,
                 bidHolderLimit = value.bidHolderLimit > 0 and value.bidHolderLimit or nil,
-                canBid = value.selfCanBid,
+                canBid = value.canBid,
                 rented = value.state == 2,
                 paidUntil = value.paidUntil > 0 and value.paidUntil or nil,
                 isYourOwner = value.owner ~= "" and value.owner:lower() == g_game.getLocalPlayer():getName():lower(),

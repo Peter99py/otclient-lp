@@ -489,7 +489,7 @@ struct CyclopediaHouse
     uint32_t bidEnd = 0;
     uint64_t highestBid = 0;
     uint64_t bidHolderLimit = 0;
-    bool selfCanBid = false;
+    uint8_t canBid = 0; // disableIndex do servidor (0 = pode dar lance)
     uint8_t canAcceptTransfer = 0;
 };
 

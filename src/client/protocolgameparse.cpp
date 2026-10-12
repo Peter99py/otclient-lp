@@ -5175,13 +5175,14 @@ void ProtocolGame::parseMonkData(const InputMessagePtr& msg) {
 
 void ProtocolGame::parseCyclopediaHouseAuctionMessage(const InputMessagePtr& msg)
 {
-    msg->getU32(); // houseId
+    const uint32_t houseId = msg->getU32();
     const uint8_t typeValue = msg->getU8();
     if (typeValue == 1) {
         msg->getU8(); // 0x00
     }
-    msg->getU8(); // index
-    // TO-DO Lua - Otui
+    const uint8_t index = msg->getU8(); // error code (0 = sucesso)
+
+    g_lua.callGlobalField("g_game", "onParseCyclopediaHouseAuctionMessage", houseId, typeValue, index);
 }
 
 void ProtocolGame::parseCyclopediaHousesInfo(const InputMessagePtr& msg)
@@ -5227,7 +5228,7 @@ void ProtocolGame::parseCyclopediaHouseList(const InputMessagePtr& msg)
                 house.bidderName = msg->getString();
                 const auto isBidder = static_cast<bool>(msg->getU8());
                 const auto disableIndex = msg->getU8(); // BidErrorMessage (0 = pode dar lance)
-                house.selfCanBid = disableIndex == 0;
+                house.canBid = disableIndex;
 
                 if (!house.bidderName.empty()) {
                     house.bidEnd = msg->getU32();

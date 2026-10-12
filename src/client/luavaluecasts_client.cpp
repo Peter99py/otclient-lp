@@ -763,8 +763,8 @@ int push_luavalue(const CyclopediaHouse& house) {
     g_lua.setField("highestBid");
     g_lua.pushNumber(static_cast<double>(house.bidHolderLimit));
     g_lua.setField("bidHolderLimit");
-    g_lua.pushBoolean(house.selfCanBid);
-    g_lua.setField("selfCanBid");
+    g_lua.pushInteger(house.canBid);
+    g_lua.setField("canBid");
     g_lua.pushInteger(house.canAcceptTransfer);
     g_lua.setField("canAcceptTransfer");
     return 1;

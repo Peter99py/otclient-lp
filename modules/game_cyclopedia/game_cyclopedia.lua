@@ -119,7 +119,8 @@ function controllerCyclopedia:onGameStart()
             -- items
             onParseItemDetail = Cyclopedia.loadItemDetail,
             -- houses
-            onParseCyclopediaHouseList = Cyclopedia.loadHouseList
+            onParseCyclopediaHouseList = Cyclopedia.loadHouseList,
+            onParseCyclopediaHouseAuctionMessage = Cyclopedia.houseMessage
         })
 
         -- Carrega o catálogo de casas do servidor (HTTP + fallback local).
