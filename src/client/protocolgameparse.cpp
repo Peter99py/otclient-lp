@@ -5177,10 +5177,16 @@ void ProtocolGame::parseCyclopediaHouseAuctionMessage(const InputMessagePtr& msg
 {
     const uint32_t houseId = msg->getU32();
     const uint8_t typeValue = msg->getU8();
+
+    // Bid (type 1): o servidor só envia o marcador 0x00 antes do código quando o
+    // lance tem SUCESSO. Na falha vem apenas o código de erro (sempre != 0).
+    uint8_t index;
     if (typeValue == 1) {
-        msg->getU8(); // 0x00
+        const uint8_t first = msg->getU8();
+        index = first == 0x00 ? msg->getU8() : first;
+    } else {
+        index = msg->getU8();
     }
-    const uint8_t index = msg->getU8(); // error code (0 = sucesso)
 
     g_lua.callGlobalField("g_game", "onParseCyclopediaHouseAuctionMessage", houseId, typeValue, index);
 }
