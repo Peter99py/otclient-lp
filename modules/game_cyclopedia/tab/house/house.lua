@@ -1,23 +1,72 @@
 local UI = nil
 
--- Catálogo de casas do client (name/description/rent/beds/sqm/GH/shop), indexado pelo
--- clientId que o servidor envia no GameServerCyclopediaHouseList (0xC7).
--- Sem esse arquivo a lista ainda é montada, porém com nomes genéricos ("House #<id>").
-pcall(function()
-    if not HOUSE then
-        HOUSE = {}
-        if g_resources and g_resources.fileExists("/data/json/houses.json") then
-            local result = json.decode(g_resources.readFileContents("/data/json/houses.json"))
-            if type(result) == "table" then
-                for k, v in pairs(result) do
-                    HOUSE[tonumber(k) or k] = v
-                end
-            end
-        end
+-- Catalogo de casas (name/description/rent/beds/sqm/GH/shop), indexado pelo clientId
+-- que o servidor envia no GameServerCyclopediaHouseList (0xC7).
+-- Publicado pelo servidor em JSON e buscado por HTTP; caches locais = fallback offline.
+local HOUSE_CATALOG_URL = "https://www.silverlakeot.com/houses.json"
+local HOUSE_CACHE_FILE = "/houses_cache.json"        -- copia baixada (write dir)
+local HOUSE_BUNDLED_FILE = "/data/json/houses.json"  -- copia embutida no client
+
+local function applyHouseCatalog(result)
+    if type(result) ~= "table" then
+        return
     end
-end)
+    HOUSE = {}
+    for k, v in pairs(result) do
+        HOUSE[tonumber(k) or k] = v
+    end
+end
+
+local function loadHouseCatalogFrom(file)
+    local loaded = false
+    pcall(function()
+        if g_resources and g_resources.fileExists(file) then
+            applyHouseCatalog(json.decode(g_resources.readFileContents(file)))
+            loaded = true
+        end
+    end)
+    return loaded
+end
+
+-- 1) Fallback offline: copia baixada antes, senao o arquivo embutido no client.
+if not HOUSE then
+    if not loadHouseCatalogFrom(HOUSE_CACHE_FILE) then
+        loadHouseCatalogFrom(HOUSE_BUNDLED_FILE)
+    end
+end
+
+-- 2) Busca o catalogo pela rede (nao bloqueia a UI) e guarda uma copia local em disco.
+function Cyclopedia.loadHouseCatalog(force)
+    if not force and Cyclopedia.House and Cyclopedia.House.CatalogLoaded then
+        return
+    end
+    if not HTTP or not HTTP.getJSON then
+        g_logger.warning("House catalog: HTTP indisponivel, usando cache local")
+        return
+    end
+    HTTP.getJSON(HOUSE_CATALOG_URL, function(data, err)
+        if err or type(data) ~= "table" then
+            g_logger.warning("House catalog: falha ao buscar (" .. tostring(err) .. "), usando cache local")
+            return
+        end
+
+        applyHouseCatalog(data)
+        Cyclopedia.House = Cyclopedia.House or {}
+        Cyclopedia.House.CatalogLoaded = true
+
+        pcall(function()
+            g_resources.writeFileContents(HOUSE_CACHE_FILE, json.encode(data))
+        end)
+
+        -- Reaplica a lista ja exibida (caso o 0xC7 tenha chegado antes do catalogo).
+        if UI and Cyclopedia.House.LastResponse then
+            Cyclopedia.loadHouseList(Cyclopedia.House.LastResponse)
+        end
+    end)
+end
 
 function showHouse()
+    Cyclopedia.loadHouseCatalog()
     UI = g_ui.loadUI("house", contentContainer)
     UI:show()
     UI.LateralBase.LayerScrollbar.decrementButton:setVisible(false)
@@ -69,14 +118,25 @@ function showHouse()
 
     UI.bidArea:setVisible(false)
     UI.ListBase:setVisible(true)
-    Cyclopedia.selectTown({
-        data = 0
-    })
+
     UI.TopBase.StatesOption:setOption("All States", true)
-    UI.TopBase.CityOption:setOption("Own Houses", true)
     UI.TopBase.SortOption:setOption("Sort by name", true)
 
-    Cyclopedia.House.lastTown = nil
+    -- Sempre (re)busca a lista ao abrir a aba, mantendo a última cidade escolhida.
+    local town = Cyclopedia.House.lastTown or ""
+    local known = town == ""
+    for _, entry in ipairs(Cyclopedia.CityList) do
+        if entry.Title == town then
+            known = true
+            break
+        end
+    end
+    if not known then
+        town = ""
+    end
+    Cyclopedia.House.lastTown = town
+    UI.TopBase.CityOption:setOption(town == "" and "Own Houses" or town, true)
+    g_game.sendCyclopediaHouseAuction(0, 0, 0, 0, town)
 end
 
 Cyclopedia.House = {}
@@ -1200,6 +1260,8 @@ function Cyclopedia.loadHouseList(data)
         Cyclopedia.House.ignore = false
         return
     end
+
+    Cyclopedia.House.LastResponse = data
 
     local houses = {}
 

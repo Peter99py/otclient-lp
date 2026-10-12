@@ -122,6 +122,11 @@ function controllerCyclopedia:onGameStart()
             onParseCyclopediaHouseList = Cyclopedia.loadHouseList
         })
 
+        -- Carrega o catálogo de casas do servidor (HTTP + fallback local).
+        if Cyclopedia.loadHouseCatalog then
+            Cyclopedia.loadHouseCatalog(true)
+        end
+
         --[[===================================================
     =               Tracker Bestiary                      =
     =================================================== ]] --
