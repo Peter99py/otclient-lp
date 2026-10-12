@@ -1,8 +1,6 @@
 name: Build (Linux + Windows + macOS + Android + Browser)
 
 on:
-  push:
-    branches: [main]
   workflow_dispatch:
 
 # Necessário para criar/atualizar o release e enviar os assets.
