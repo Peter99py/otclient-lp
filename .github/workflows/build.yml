@@ -1,4 +1,4 @@
-name: Build (Linux + Windows + macOS + Android)
+name: Build (Linux + Windows + macOS + Android + Browser)
 
 on:
   push:
@@ -383,3 +383,39 @@ jobs:
               --notes "Build automatico do cliente (branch main)." || true
           cp "$(ls android/app/build/outputs/apk/release/*.apk | head -n1)" otclient-android.apk
           gh release upload latest otclient-android.apk --clobber
+
+  # ---------------------------------------------------------------------------
+  # 5) Browser: WebAssembly + HTML5 / PWA Bundle
+  # ---------------------------------------------------------------------------
+  build-browser:
+    name: Browser (WASM / Web)
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Build browser bundle with Docker
+        run: |
+          chmod +x Dockerfile.browser.sh
+          ./Dockerfile.browser.sh
+
+      - name: Package PWA files and bundle
+        run: |
+          OUTPUT_DIR="build-emscripten-web"
+          # Inclui os arquivos do PWA (manifest, service worker e icones) no pacote web
+          cp browser/manifest.json "$OUTPUT_DIR/" 2>/dev/null || true
+          cp browser/sw.js "$OUTPUT_DIR/" 2>/dev/null || true
+          cp browser/icon-*.png "$OUTPUT_DIR/" 2>/dev/null || true
+          cd "$OUTPUT_DIR" && zip -r ../otclient-browser.zip .
+
+      - name: Publish asset (browser)
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          gh release view latest >/dev/null 2>&1 || \
+            gh release create latest \
+              --title "Latest build" \
+              --notes "Build automatico do cliente (branch main)." || true
+          gh release upload latest otclient-browser.zip --clobber

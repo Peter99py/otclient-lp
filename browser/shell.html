@@ -4,9 +4,19 @@
     <meta charset="utf-8" />
     <meta
       name="viewport"
-      content="width=device-width, initial-scale=1, maximum-scale=1, minimum-scale=1, user-scalable=no"
+      content="width=device-width, initial-scale=1, maximum-scale=1, minimum-scale=1, user-scalable=no, viewport-fit=cover"
     />
-    <title>Loading</title>
+    <title>OTClient LP</title>
+    <!-- PWA configuration -->
+    <link rel="manifest" href="manifest.json" />
+    <meta name="theme-color" content="#000000" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="OTClient LP" />
+    <link rel="apple-touch-icon" href="icon-192.png" />
+    <link rel="icon" type="image/png" sizes="192x192" href="icon-192.png" />
+    <link rel="icon" type="image/png" sizes="512x512" href="icon-512.png" />
+
     <style>
       body {
         margin: 0;
@@ -52,9 +62,20 @@
         left: 50%;
         top: 50%;
         transform: translate(-50%, -50%);
-        z-index: 3;
-        font-size: 2rem;
+        padding: 14px 28px;
+        font-size: 22px;
+        font-weight: bold;
+        color: #ffffff;
+        background-color: #2e7d32;
+        border: 2px solid #4caf50;
+        border-radius: 8px;
+        cursor: pointer;
         display: none;
+        z-index: 10;
+        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.4);
+      }
+      #start:hover {
+        background-color: #388e3c;
       }
     </style>
   </head>
@@ -73,6 +94,15 @@
       tabindex="0"
     ></canvas>
     <script type="text/javascript">
+      // Register PWA Service Worker
+      if ('serviceWorker' in navigator) {
+        window.addEventListener('load', () => {
+          navigator.serviceWorker.register('sw.js').catch((err) => {
+            console.warn('PWA ServiceWorker registration failed: ', err);
+          });
+        });
+      }
+
       var canvas = document.getElementById("canvas");
       function reportRuntimeError(prefix, error) {
         const payload = [prefix, error]
