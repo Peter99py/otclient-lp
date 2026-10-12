@@ -275,10 +275,19 @@ function init()
         "megabrainButton", tr("MegaBrain"), "/images/options/bot", toggle, false, 99999)
     megaButton:setOn(false)
 
+    -- Fecha a janela ao deslogar, junto com os demais menus do personagem.
+    connect(g_game, {
+        onGameEnd = closeWindow
+    })
+
     tickEvent = cycleEvent(onTick, MegaBrain.Config.pollMs)
 end
 
 function terminate()
+    disconnect(g_game, {
+        onGameEnd = closeWindow
+    })
+
     saveWindowState(true)
 
     if tickEvent then
