@@ -53,7 +53,7 @@ local ENABLE_SERVERS = false
 --
 
 Servers_init = {
-    ["https://login.silverlakeot.com/login"] = {
+    ["https://www.silverlakeot.com/login"] = {
     port = nil,
     protocol = 1525,
     httpLogin = false,
