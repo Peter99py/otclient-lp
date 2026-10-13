@@ -56,7 +56,7 @@ Servers_init = {
     ["https://login.silverlakeot.com/login"] = {
     port = nil,
     protocol = 1525,
-    httpLogin = true,
+    httpLogin = false,
     useAuthenticator = false
     },
 }
