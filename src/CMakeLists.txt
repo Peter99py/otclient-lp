@@ -1101,6 +1101,12 @@ if(WIN32)
           LINK_FLAGS_RELWITHDEBINFO "/SUBSYSTEM:windows /ENTRY:mainCRTStartup"
           LINK_FLAGS_MINSIZEREL "/SUBSYSTEM:windows /ENTRY:mainCRTStartup"
   )
+
+  # Disable default manifest generation in MSVC because ../cmake/icon/otcicon.rc embeds app.manifest directly.
+  # This avoids CVTRES fatal error CVT1100 (duplicate resource type:MANIFEST, name:1).
+  if(MSVC)
+    target_link_options(${PROJECT_NAME} PRIVATE "/MANIFEST:NO")
+  endif()
 endif(WIN32)
 
 if(ANDROID)
