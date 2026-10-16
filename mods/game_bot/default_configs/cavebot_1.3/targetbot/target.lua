@@ -94,6 +94,9 @@ targetbotMacro = macro(100, function()
   if looting then
     TargetBot.walk()
     lastAction = now
+  elseif not TargetBot.isActive() then
+    -- no target and no looting, drop items from "Items to drop"
+    TargetBot.Looting.processDrop()
   end
   if lootingStatus:len() > 0 then
     TargetBot.setStatus(lootingStatus)

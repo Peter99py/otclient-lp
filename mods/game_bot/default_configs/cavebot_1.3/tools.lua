@@ -87,37 +87,6 @@ macro(10000, "Anti Kick",  function()
 end)
 
 UI.Separator()
-UI.Label("Drop items:")
-if type(storage.dropItems) ~= "table" then
-  storage.dropItems = {283, 284, 285}
-end
-
-local foodContainer = UI.Container(function(widget, items)
-  storage.dropItems = items
-end, true)
-foodContainer:setHeight(35)
-foodContainer:setItems(storage.dropItems)
-
-macro(5000, "drop items", function()
-  if not storage.dropItems[1] then return end
-  if TargetBot and TargetBot.isActive() then return end -- pause when attacking
-  for _, container in pairs(g_game.getContainers()) do
-    for __, item in ipairs(container:getItems()) do
-      for i, dropItem in ipairs(storage.dropItems) do
-        if item:getId() == dropItem.id then
-          if item:isStackable() then
-            return g_game.move(item, player:getPosition(), item:getCount())
-          else
-            return g_game.move(item, player:getPosition(), dropItem.count) -- count is also subtype
-          end
-        end
-      end
-    end
-  end
-end)
-
-UI.Separator()
-
 UI.Label("Mana training")
 if type(storage.manaTrain) ~= "table" then
   storage.manaTrain = {on=false, title="MP%", text="utevo lux", min=80, max=100}

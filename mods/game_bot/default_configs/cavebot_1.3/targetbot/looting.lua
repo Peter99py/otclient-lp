@@ -4,16 +4,57 @@ TargetBot.Looting.list = {} -- list of containers to loot
 local ui
 local items = {}
 local containers = {}
+local dropItems = {}
 local itemsById = {}
 local containersById = {}
+local dropById = {} -- id -> count (count is also subtype for non-stackable items)
 local dontSave = false
+
+local DROP_INTERVAL = 5000 -- ms between drop checks
+local lastDropCheck = 0
+
+local function defaultDropItems()
+  return {283, 284, 285} -- empty vials/flasks
+end
+
+-- returns a set {id = true} from a list of {id=..., count=...}
+local function idsSet(list)
+  local set = {}
+  for _, item in ipairs(list or {}) do
+    set[item.id] = true
+  end
+  return set
+end
+
+-- removes from container widget every item whose id is in ids set
+-- uses setItems, which does NOT trigger the container callback (no loops)
+-- returns true if something has been removed
+local function removeIdsFromContainer(widget, ids)
+  local current = widget:getItems()
+  local filtered = {}
+  for _, item in ipairs(current) do
+    if not ids[item.id] then
+      table.insert(filtered, item)
+    end
+  end
+  if #filtered ~= #current then
+    widget:setItems(filtered)
+    return true
+  end
+  return false
+end
 
 TargetBot.Looting.setup = function()
   ui = UI.createWidget("TargetBotLootingPanel")
   UI.Container(TargetBot.Looting.onItemsUpdate, true, nil, ui.items)
+  UI.Container(TargetBot.Looting.onDropUpdate, true, nil, ui.dropItems)
   UI.Container(TargetBot.Looting.onContainersUpdate, true, nil, ui.containers)
   ui.everyItem.onClick = function()
     ui.everyItem:setOn(not ui.everyItem:isOn())
+    TargetBot.save()
+  end
+  ui.dropEnabled.onClick = function()
+    ui.dropEnabled:setOn(not ui.dropEnabled:isOn())
     TargetBot.save()
   end
   ui.maxDangerPanel.value.onTextChange = function()
@@ -34,8 +75,18 @@ TargetBot.Looting.setup = function()
   end
 end
 
-TargetBot.Looting.onItemsUpdate = function()
+-- item added to "Items to loot" -> remove it from "Items to drop"
+TargetBot.Looting.onItemsUpdate = function(widget, newItems)
   if dontSave then return end
+  removeIdsFromContainer(ui.dropItems, idsSet(newItems or ui.items:getItems()))
+  TargetBot.save()
+  TargetBot.Looting.updateItemsAndContainers()
+end
+
+-- item added to "Items to drop" -> remove it from "Items to loot"
+TargetBot.Looting.onDropUpdate = function(widget, newItems)
+  if dontSave then return end
+  removeIdsFromContainer(ui.items, idsSet(newItems or ui.dropItems:getItems()))
   TargetBot.save()
   TargetBot.Looting.updateItemsAndContainers()
 end
@@ -50,8 +101,17 @@ TargetBot.Looting.update = function(data)
   dontSave = true
   TargetBot.Looting.list = {}
   ui.items:setItems(data['items'] or {})
-  ui.containers:setItems(data['containers'] or {})
+  -- profiles without "drop" start with default vials, empty list stays empty
+  local drop = data['drop']
+  if type(drop) ~= 'table' then
+    drop = defaultDropItems()
+  end
+  ui.dropItems:setItems(drop)
+  -- the same item in both lists: loot list prevails
+  removeIdsFromContainer(ui.dropItems, idsSet(ui.items:getItems()))
   ui.everyItem:setOn(data['everyItem'])
+  ui.dropEnabled:setOn(data['dropEnabled'] ~= false) -- default on
+  ui.containers:setItems(data['containers'] or {})
   ui.maxDangerPanel.value:setText(data['maxDanger'] or 10)
   ui.minCapacityPanel.value:setText(data['minCapacity'] or 100)
   TargetBot.Looting.updateItemsAndContainers()
@@ -60,6 +120,8 @@ end
 
 TargetBot.Looting.save = function(data)
   data['items'] = ui.items:getItems()
+  data['drop'] = ui.dropItems:getItems()
+  data['dropEnabled'] = ui.dropEnabled:isOn()
   data['containers'] = ui.containers:getItems()
   data['maxDanger'] = tonumber(ui.maxDangerPanel.value:getText())
   data['minCapacity'] = tonumber(ui.minCapacityPanel.value:getText())
@@ -69,13 +131,18 @@ end
 TargetBot.Looting.updateItemsAndContainers = function()
   items = ui.items:getItems()
   containers = ui.containers:getItems()
+  dropItems = ui.dropItems:getItems()
   itemsById = {}
   containersById = {}
+  dropById = {}
   for i, item in ipairs(items) do
     itemsById[item.id] = 1
   end
   for i, container in ipairs(containers) do
     containersById[container.id] = 1
+  end
+  for i, item in ipairs(dropItems) do
+    dropById[item.id] = item.count or 1
   end
 end
 
@@ -224,7 +291,7 @@ TargetBot.Looting.lootContainer = function(lootContainers, container)
   for i, item in ipairs(container:getItems()) do
     if item:isContainer() and not itemsById[item:getId()] then
       nextContainer = item
-    elseif itemsById[item:getId()] or (ui.everyItem:isOn() and not item:isContainer()) then
+    elseif itemsById[item:getId()] or (ui.everyItem:isOn() and not item:isContainer() and not dropById[item:getId()]) then
       item.lootTries = (item.lootTries or 0) + 1
       if item.lootTries < 5 then -- if can't be looted within 0.5s then skip it
         return TargetBot.Looting.lootItem(lootContainers, item)
@@ -274,6 +341,36 @@ TargetBot.Looting.lootItem = function(lootContainers, item)
   local container = lootContainers[1]
   g_game.move(item, container:getSlotPosition(container:getItemsCount()), 1)
   waitTill = now + 300 -- give it 0.3s to move item
+end
+
+-- drops one item from "Items to drop" on player position
+-- called by targetbot main loop only when there's no target and no looting,
+-- so it works only when TargetBot is enabled
+TargetBot.Looting.processDrop = function()
+  if not ui.dropEnabled:isOn() or not dropItems[1] then
+    return false
+  end
+  if lastDropCheck + DROP_INTERVAL > now then
+    return false
+  end
+  lastDropCheck = now
+
+  for _, container in pairs(g_game.getContainers()) do
+    if not container.lootContainer then -- ignore monster containers (corpses)
+      for __, item in ipairs(container:getItems()) do
+        local id = item:getId()
+        if dropById[id] and not itemsById[id] then -- loot list prevails
+          if item:isStackable() then
+            g_game.move(item, player:getPosition(), item:getCount())
+          else
+            g_game.move(item, player:getPosition(), dropById[id]) -- count is also subtype
+          end
+          return true
+        end
+      end
+    end
+  end
+  return false
 end
 
 onContainerOpen(function(container, previousContainer)

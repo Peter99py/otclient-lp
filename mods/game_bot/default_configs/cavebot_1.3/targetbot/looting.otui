@@ -22,6 +22,20 @@ TargetBotLootingPanel < Panel
 
   Label
     margin-top: 5
+    text: Items to drop
+    text-align: center
+
+  BotContainer
+    id: dropItems
+    margin-top: 3
+
+  BotSwitch
+    id: dropEnabled
+    !text: tr("Drop items")
+    margin-top: 2
+
+  Label
+    margin-top: 5
     text: Containers for loot
     text-align: center
 
