@@ -14,6 +14,13 @@ local routeLoopStart = 1
 local routeFetching = false
 local routeRetryAt = 0
 
+-- Anti-stuck (detecção e recuperação de travamento)
+local lastPos = nil
+local lastMoveTime = 0
+local lastCommandTime = 0
+local stuckAttempts = 0
+local STUCK_TIMEOUT_MS = 2000 -- Tempo parado tentando andar antes de acionar anti-stuck
+
 -- Caminho (tiles) comandado no último tick; enviado ao backend para a UI.
 local lastCommand = nil
 
@@ -105,6 +112,9 @@ local function fetchRoute(id)
         routeDirs = data.directions
         routeCursor = 1
         routeLoopStart = data.loop_start or 1
+        stuckAttempts = 0
+        lastPos = nil
+        lastMoveTime = g_clock.millis()
         MegaBrain.Logger.debugLog("Rota " .. id .. " carregada: " .. #routeDirs .. " passos")
     end)
 end
@@ -129,6 +139,8 @@ function MegaBrain.Navigator.onState(state)
         routeCursor = 1
         routeLoopStart = 1
         routeRetryAt = 0
+        stuckAttempts = 0
+        lastPos = nil
     end
 end
 
@@ -157,12 +169,81 @@ local function findCursor(pos)
     return best
 end
 
+-- Encontra o índice do tile da rota mais próximo da coordenada pos,
+-- que esteja a partir de startIndex (para permitir avançar após um ponto bloqueado).
+local function findNearestRouteIndex(pos, startIndex, minDistance)
+    if not routePath or #routePath == 0 then
+        return nil
+    end
+    startIndex = math.max(1, startIndex or 1)
+    minDistance = minDistance or 1
+    local bestIdx = nil
+    local bestDist = math.huge
+
+    for i = startIndex, #routePath do
+        local t = routePath[i]
+        local d = math.max(math.abs(t[1] - pos.x), math.abs(t[2] - pos.y))
+        if d >= minDistance and d < bestDist then
+            bestDist = d
+            bestIdx = i
+        end
+    end
+
+    -- Se não encontrou do startIndex para frente, faz wrap para o início da rota
+    if not bestIdx and startIndex > 1 then
+        for i = 1, startIndex - 1 do
+            local t = routePath[i]
+            local d = math.max(math.abs(t[1] - pos.x), math.abs(t[2] - pos.y))
+            if d >= minDistance and d < bestDist then
+                bestDist = d
+                bestIdx = i
+            end
+        end
+    end
+
+    return bestIdx, bestDist
+end
+
+-- Tenta recuperar o personagem enviando autoWalk com pathfinding para um ponto alvo da rota
+local function tryRecoverStuck(localPlayer, pos)
+    stuckAttempts = stuckAttempts + 1
+    local targetIdx = nil
+
+    if stuckAttempts == 1 then
+        -- Tentativa 1: Ponto mais próximo da rota (à frente do cursor)
+        targetIdx = findNearestRouteIndex(pos, routeCursor, 1)
+        MegaBrain.Logger.debugLog(string.format("Anti-stuck [Tentativa 1]: Mirando no ponto mais proximo (idx %s)", tostring(targetIdx)))
+    else
+        -- Tentativas subsequentes: Pular para o ponto após o bloqueado (skip)
+        local skipOffset = (stuckAttempts - 1) * 2
+        local searchStart = (routeCursor + skipOffset)
+        if searchStart > #routePath then
+            searchStart = routeLoopStart
+        end
+        targetIdx = findNearestRouteIndex(pos, searchStart, 2)
+        MegaBrain.Logger.debugLog(string.format("Anti-stuck [Tentativa %d]: Pulando para frente da rota (idx %s)", stuckAttempts, tostring(targetIdx)))
+    end
+
+    if targetIdx and routePath[targetIdx] then
+        local targetTile = routePath[targetIdx]
+        local destPos = { x = targetTile[1], y = targetTile[2], z = pos.z }
+        routeCursor = targetIdx
+        lastMoveTime = g_clock.millis() -- reinicia a janela para dar tempo de andar
+        localPlayer:autoWalk(destPos)
+        return true
+    end
+
+    return false
+end
+
 local function stepRoute()
     if paused or routeId == 0 then
+        lastMoveTime = g_clock.millis()
         return
     end
     logCavebotStatus()
     if not cavebotAllows() then
+        lastMoveTime = g_clock.millis()
         return
     end
     if not routePath then
@@ -171,15 +252,45 @@ local function stepRoute()
     end
 
     local localPlayer = g_game.getLocalPlayer()
-    if not localPlayer or localPlayer:isWalking() then
+    if not localPlayer then
         return
     end
 
+    local now = g_clock.millis()
     local pos = localPlayer:getPosition()
+
+    -- Monitoramento de deslocamento
+    if not lastPos or pos.x ~= lastPos.x or pos.y ~= lastPos.y or pos.z ~= lastPos.z then
+        lastPos = { x = pos.x, y = pos.y, z = pos.z }
+        lastMoveTime = now
+        stuckAttempts = 0
+    end
+
+    if localPlayer:isWalking() then
+        return
+    end
+
+    -- Se já enviamos comando mas o personagem ficou parado por mais de STUCK_TIMEOUT_MS
+    if lastCommandTime > 0 and (now - lastMoveTime) >= STUCK_TIMEOUT_MS then
+        MegaBrain.Logger.debugLog(string.format("Stuck detectado! Parado ha %d ms em (%d, %d, %d)", now - lastMoveTime, pos.x, pos.y, pos.z))
+        if tryRecoverStuck(localPlayer, pos) then
+            lastCommandTime = now
+            return
+        end
+    end
+
     local idx = findCursor(pos)
     if not idx then
-        -- Fora da rota: re-busca a entrada (do ponto atual) com cooldown.
-        local now = g_clock.millis()
+        -- Fora da rota: tenta caminhar ao ponto mais próximo ou recarrega entrada
+        local nearestIdx = findNearestRouteIndex(pos, 1, 1)
+        if nearestIdx and routePath[nearestIdx] then
+            local targetTile = routePath[nearestIdx]
+            routeCursor = nearestIdx
+            localPlayer:autoWalk({ x = targetTile[1], y = targetTile[2], z = pos.z })
+            lastCommandTime = now
+            return
+        end
+
         if now >= routeRetryAt then
             routeRetryAt = now + 3000
             routePath = nil
@@ -197,6 +308,7 @@ local function stepRoute()
         return
     end
     lastCommand = commandTiles(pos, dirs)
+    lastCommandTime = now
     g_game.autoWalk(dirs, pos)
 end
 

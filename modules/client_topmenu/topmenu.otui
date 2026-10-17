@@ -32,8 +32,8 @@ PingWidget < UIWidget
       text-align: center
       focusable: false
       font: verdana-11px-rounded
-      
-TopMenuPanel 
+
+TopMenuPanel
   id: topMenu
   anchors.top: parent.top
   anchors.horizontalCenter: parent.horizontalCenter

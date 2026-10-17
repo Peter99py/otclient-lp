@@ -201,7 +201,7 @@ function EnterGame.init()
         EnterGame.setPassword('')
         enterGame:getChildById('rememberEmailBox'):setChecked(false)
     end
-    
+
     enterGame:getChildById('autoLoginBox'):setChecked(serverData.autologin == true)
     enterGame:getChildById('serverHostTextEdit'):setText(host)
     enterGame:getChildById('serverPortTextEdit'):setText(port)
@@ -346,7 +346,7 @@ function EnterGame.firstShow()
         if g_modules.getModule("client_bottommenu"):isLoaded()  then
             EnterGame.postCacheInfo()
             EnterGame.postEventScheduler()
-            -- EnterGame.postShowOff() -- myacc/znote no send login.php
+            EnterGame.postShowOff() -- myacc/znote no send login.php
             EnterGame.postShowCreatureBoost()
         end
     end
@@ -969,12 +969,12 @@ function EnterGame.showAuthenticatorInput()
         tokenWindow:destroy()
         tokenWindow = nil
     end
-    
+
     -- Create a custom message box with embedded text edit
     tokenWindow = g_ui.createWidget('MessageBoxWindow', rootWidget)
     tokenWindow.title = tokenWindow:getChildById('title')
     tokenWindow.title:setText(tr('Two-Factor Authentication'))
-    
+
     tokenWindow.content = tokenWindow:getChildById('content')
     tokenWindow.content:setText(tr('Please enter a new, valid token:'))
     tokenWindow.content:setColor('#c0c0c0')
@@ -985,7 +985,7 @@ function EnterGame.showAuthenticatorInput()
     tokenWindow.content:addAnchor(AnchorTop, 'parent', AnchorTop)
     tokenWindow.content:setMarginLeft(15)
     tokenWindow.content:setMarginTop(32)
-    
+
     -- Add text edit field for token input
     local tokenEdit = g_ui.createWidget('TextEdit', tokenWindow)
     tokenEdit:setId('tokenEdit')
@@ -998,7 +998,7 @@ function EnterGame.showAuthenticatorInput()
     tokenEdit:setMarginLeft(15)
     tokenEdit:setMarginRight(15)
     tokenEdit:focus()
-    
+
     -- Add horizontal separator
     local separator = g_ui.createWidget('HorizontalSeparator', tokenWindow)
     separator:setId('customSeparator')
@@ -1008,7 +1008,7 @@ function EnterGame.showAuthenticatorInput()
     separator:setMarginTop(10)
     separator:setMarginLeft(15)
     separator:setMarginRight(15)
-    
+
     -- Reposition the holder to be below our custom separator
     tokenWindow.holder = tokenWindow:getChildById('holder')
     tokenWindow.holder:breakAnchors()
@@ -1017,7 +1017,7 @@ function EnterGame.showAuthenticatorInput()
     tokenWindow.holder:addAnchor(AnchorTop, 'customSeparator', AnchorBottom)
     tokenWindow.holder:addAnchor(AnchorBottom, 'parent', AnchorBottom)
     tokenWindow.holder:setMarginTop(12)
-    
+
     local okCallback = function()
         local token = tokenEdit:getText()
         if not token or token:len() == 0 then
@@ -1037,9 +1037,9 @@ function EnterGame.showAuthenticatorInput()
             })
             return
         end
-        
+
         hasAttemptedAuthenticator = true
-        
+
         G.account = enterGame:getChildById('accountNameTextEdit'):getText()
         G.password = enterGame:getChildById('accountPasswordTextEdit'):getText()
         G.host = enterGame:getChildById('serverHostTextEdit'):getText()
@@ -1047,15 +1047,15 @@ function EnterGame.showAuthenticatorInput()
         G.authenticatorToken = token
         local clientVersion = tonumber(clientBox:getText())
         local httpLogin = enterGame:getChildById('httpLoginBox'):isChecked()
-        
+
         if tokenWindow then
             tokenWindow:destroy()
             tokenWindow = nil
         end
-        
+
         EnterGame.tryHttpLogin(clientVersion, httpLogin)
     end
-    
+
     local cancelCallback = function()
         hasAttemptedAuthenticator = false
         G.authenticatorToken = nil
@@ -1065,7 +1065,7 @@ function EnterGame.showAuthenticatorInput()
         end
         EnterGame.show()
     end
-        
+
     -- Add Cancel button (to the left of OK button)
     local cancelButton = tokenWindow:addButton(tr('Cancel'), cancelCallback)
     cancelButton:breakAnchors()
@@ -1080,20 +1080,20 @@ function EnterGame.showAuthenticatorInput()
     okButton:addAnchor(AnchorRight, 'prev', AnchorLeft)
     okButton:setMarginRight(10)
     okButton:setWidth(40)
-    
+
     -- Calculate window size based on content
     local windowWidth = 350
     local windowHeight = 28 + tokenWindow.content:getHeight() + 10 + tokenEdit:getHeight() + 10 + 2 + 12 + okButton:getHeight() + 12
-    
+
     tokenWindow:setWidth(windowWidth)
     tokenWindow:setHeight(windowHeight)
-    
+
     -- Connect Enter and Escape keys
     connect(tokenWindow, {
         onEnter = okCallback,
         onEscape = cancelCallback
     })
-    
+
     -- Connect text edit Enter key
     connect(tokenEdit, {
         onEnter = okCallback
@@ -1107,7 +1107,7 @@ function EnterGame.doLoginWithToken()
         print('Authenticator token is disabled for this server.')
         return
     end
-    
+
     EnterGame.showAuthenticatorInput()
 end
 

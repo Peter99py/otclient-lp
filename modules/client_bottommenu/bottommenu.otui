@@ -38,7 +38,7 @@ Panel
   anchors.bottom: parent.bottom
   anchors.horizontalCenter: parent.horizontalCenter
   image-source: /images/ui/panel_top
-  
+
   Label
     phantom: true
     anchors.bottom: parent.bottom
@@ -47,12 +47,12 @@ Panel
     text-auto-resize: true
     color: #c0c0c0ff
     margin-bottom: 110
-    text: OTClient Redemption
+    text: Client Silverlake
     ttf-font: martel
     ttf-font-size: 90
     stroke: 2 black
     shader: Map - Party
-    
+
   MiniQtScrollableWindow
     id: showOffWindow
     anchors.bottom: parent.bottom
@@ -125,7 +125,7 @@ Panel
         anchors.top: parent.top
         anchors.right: parent.right
         anchors.left: parent.horizontalCenter
-        margin-left: 1  
+        margin-left: 1
 
       CalendarDay
         id: upcomingScheduleEvent
@@ -200,7 +200,7 @@ Panel
         image-border: 0
         border-width: 0
         border-color: alpha
-        
+
       UIWidget
         id: bossImage
         anchors.horizontalCenter: parent.horizontalCenter

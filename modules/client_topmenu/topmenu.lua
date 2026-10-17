@@ -197,15 +197,15 @@ function online()
         end
         local showPing = modules.client_options.getOption('showPing')
         local pingFeatureAvailable = g_game.getFeature(GameClientPing) or g_game.getFeature(GameExtendedClientPing)
-        
+
         if not PingWidget then
             PingWidget = g_ui.loadUI("pingFps", modules.game_interface.getMapPanel())
             MainPingPanel = g_ui.createWidget("testPingPanel", PingWidget:getChildByIndex(1))
             MainPingPanel:setId("ping")
-            
+
             pingImg = MainPingPanel:getChildByIndex(1)
             pingPanel = MainPingPanel:getChildByIndex(2)
-            
+
             mainFpsPanel = g_ui.createWidget("testPingPanel", PingWidget:getChildByIndex(2))
             mainFpsPanel:setId("fps")
             fpsPanel2 = mainFpsPanel:getChildByIndex(2)
@@ -227,7 +227,7 @@ function online()
 
         pingImg:setVisible(showPing)
         pingPanel:setVisible(showPing)
-        
+
         local showFps = modules.client_options.getOption('showFps')
         fpsPanel2:setVisible(showFps)
     end)
@@ -521,7 +521,7 @@ function extendedView(extendedView)
         topMenu:setWidth(1020)
         topMenu.topLeftDiscord:setWidth(110)
         topMenu.topLeftYoutube:setWidth(100)
-        topMenu.topLeftOnlinePlayers:show()
+        --topMenu.topLeftOnlinePlayers:show()
         topMenu.topLeftDiscord:show()
         topMenu.topLeftYoutube:show()
     end

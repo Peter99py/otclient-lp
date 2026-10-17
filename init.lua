@@ -4,13 +4,13 @@
 -- updater
 Services = {
     --updater = "http://localhost/api/updater.php", --./updater
-    --status = "http://localhost/login.php", --./client_entergame | ./client_topmenu
-    --websites = "http://localhost/?subtopic=accountmanagement", --./client_entergame "Forgot password and/or email"
-    --createAccount = "http://localhost/clientcreateaccount.php", --./client_entergame -- createAccount.lua
+    status = "https://www.silverlakeot.com/login", --./client_entergame | ./client_topmenu
+    websites = "https://www.silverlakeot.com/", --./client_entergame "Forgot password and/or email"
+    createAccount = "https://www.silverlakeot.com/index.php/account/create", --./client_entergame -- createAccount.lua
     --getCoinsUrl = "http://localhost/?subtopic=shop&step=terms", --./game_market
     clientAssets = {
         enabled = true,
-        repository = "dudantas/tibia-client",
+        repository = "",
         installSounds = true,
         strictManifestSha256 = true,
         allowRawFallbackHashMismatch = false,
@@ -111,9 +111,9 @@ if ENABLE_SERVERS then
     }
 end
 
-g_app.setName("OTClient - Redemption");
-g_app.setCompactName("otclient");
-g_app.setOrganizationName("otcr");
+g_app.setName("Client Silverlake");
+g_app.setCompactName("Silverlake");
+g_app.setOrganizationName("Silver");
 
 g_app.hasUpdater = function()
     return (Services.updater and Services.updater ~= "" and g_modules.getModule("updater"))
