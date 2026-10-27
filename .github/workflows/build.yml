@@ -138,6 +138,33 @@ jobs:
               --notes "Build automatico do cliente (branch main)." || true
           gh release upload latest otclient-windows.zip --clobber
 
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Generate updater manifest
+        shell: bash
+        run: |
+          EXE_FILE=$(ls dist/*.exe 2>/dev/null | head -n 1)
+          if [ -n "$EXE_FILE" ]; then
+            python tools/generate_updater_manifest.py               --client-dir dist               --binary "$EXE_FILE"               --url "https://downloads.silverlakeot.com/client/"               --output dist/updater.json
+          else
+            python tools/generate_updater_manifest.py               --client-dir dist               --url "https://downloads.silverlakeot.com/client/"               --output dist/updater.json
+          fi
+
+      - name: Deploy updates to Cloudflare R2
+        shell: bash
+        if: env.R2_CONFIGURED == 'true'
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+          AWS_DEFAULT_REGION: auto
+          R2_CONFIGURED: ${{ secrets.R2_ACCOUNT_ID != '' && secrets.R2_BUCKET != '' }}
+        run: |
+          echo ">> Sincronizando arquivos atualizados com o Cloudflare R2..."
+          aws s3 sync dist s3://${{ secrets.R2_BUCKET }}/client/             --endpoint-url https://${{ secrets.R2_ACCOUNT_ID }}.r2.cloudflarestorage.com             --exclude "*.zip"             --exclude "*.log"
+
   # ---------------------------------------------------------------------------
   # 3) macOS: client C++ (Apple Silicon / arm64)
   # ---------------------------------------------------------------------------

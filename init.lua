@@ -3,7 +3,7 @@
 
 -- updater
 Services = {
-    --updater = "http://localhost/api/updater.php", --./updater
+    updater = "https://www.silverlakeot.com/api/updater", --./updater
     status = "https://www.silverlakeot.com/login", --./client_entergame | ./client_topmenu
     websites = "https://www.silverlakeot.com/", --./client_entergame "Forgot password and/or email"
     createAccount = "https://www.silverlakeot.com/index.php/account/create", --./client_entergame -- createAccount.lua
