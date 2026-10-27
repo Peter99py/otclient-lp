@@ -6296,6 +6296,7 @@ void ProtocolGame::parseOpenRewardWall(const InputMessagePtr& msg)
     uint16_t tokens = 0;
     std::string errorMessage = "";
     uint32_t timeLeft = 0;
+    uint8_t canGetReward = 0;
 
     if (wasDailyRewardTaken != 0) {// taken (player already took reward?)
         errorMessage = msg->getString(); // error message
@@ -6304,7 +6305,7 @@ void ProtocolGame::parseOpenRewardWall(const InputMessagePtr& msg)
             tokens = msg->getU16(); // Tokens
         }
     } else {
-        msg->getU8(); // Unknown
+        canGetReward = msg->getU8(); // 2 = reward can be collected
         timeLeft = msg->getU32(); // time left to pickup reward without loosing streak
         tokens = msg->getU16(); // Tokens
     }
@@ -6312,7 +6313,7 @@ void ProtocolGame::parseOpenRewardWall(const InputMessagePtr& msg)
     const uint16_t dayStreakLevel = msg->getU16(); // day streak level
 
     g_lua.callGlobalField("g_game", "onOpenRewardWall", bonusShrine, nextRewardTime, dayStreakDay,
-                          wasDailyRewardTaken, errorMessage, tokens, timeLeft, dayStreakLevel);
+                          wasDailyRewardTaken, errorMessage, tokens, timeLeft, dayStreakLevel, canGetReward);
 }
 
 namespace {
