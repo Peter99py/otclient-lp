@@ -5,6 +5,8 @@ generate_updater_manifest.py
 Gera o arquivo updater.json para o auto-updater do OTClient.
 Calcula o CRC32 (em hexadecimal minúsculo) de cada arquivo relativo à raiz do client,
 compatível com Crypt::crc32 do C++.
+Os caminhos dos arquivos e binários são prefixados com '/' para compatibilidade com
+g_resources.filesChecksums() do PhysFS, e a URL base é mantida sem barra final.
 Suporta múltiplos binários indexados por SO (windows, linux, mac).
 """
 
@@ -61,15 +63,23 @@ def calculate_crc32(filepath: str) -> str:
     return hex(crc & 0xFFFFFFFF)[2:].lower()
 
 
+def format_manifest_path(rel_path: str) -> str:
+    """Normaliza o caminho com barras comuns e garante a barra '/' no inicio para PhysFS."""
+    normalized = rel_path.replace("\\", "/")
+    if not normalized.startswith("/"):
+        normalized = "/" + normalized
+    return normalized
+
+
 def scan_client_files(client_root: str):
-    """Varre os arquivos do client e retorna um dicionario { 'caminho/relativo': 'crc32' }."""
+    """Varre os arquivos do client e retorna um dicionario { '/caminho/relativo': 'crc32' }."""
     files_map = {}
 
     # 1. Arquivos da raiz explicitos (ex: init.lua)
     for root_file in DEFAULT_ROOT_FILES:
         full_path = os.path.join(client_root, root_file)
         if os.path.isfile(full_path):
-            files_map[root_file] = calculate_crc32(full_path)
+            files_map[format_manifest_path(root_file)] = calculate_crc32(full_path)
 
     # 2. Diretorios de assets e scripts
     for folder in DEFAULT_SCAN_DIRS:
@@ -86,18 +96,18 @@ def scan_client_files(client_root: str):
                     continue
 
                 full_path = os.path.join(root, file)
-                rel_path = os.path.relpath(full_path, client_root).replace("\\", "/")
-                files_map[rel_path] = calculate_crc32(full_path)
+                rel_path = os.path.relpath(full_path, client_root)
+                files_map[format_manifest_path(rel_path)] = calculate_crc32(full_path)
 
     return files_map
 
 
 def resolve_binary(client_root: str, binary_path: str):
-    """Calcula o checksum do binario e retorna dict {'file': '...', 'checksum': '...'}."""
+    """Calcula o checksum do binario e retorna dict {'file': '/...', 'checksum': '...'}."""
     if not os.path.isabs(binary_path):
         binary_path = os.path.join(client_root, binary_path)
 
-    filename = os.path.basename(binary_path)
+    filename = format_manifest_path(os.path.basename(binary_path))
     if os.path.isfile(binary_path):
         checksum = calculate_crc32(binary_path)
         print(f"Binario mapeado: {filename} (CRC32: {checksum})")
@@ -116,8 +126,8 @@ def main():
     )
     parser.add_argument(
         "--url",
-        default="https://downloads.silverlakeot.com/client/",
-        help="URL base onde os arquivos atualizados serao baixados",
+        default="https://downloads.silverlakeot.com/client",
+        help="URL base onde os arquivos atualizados serao baixados (sem barra no final)",
     )
     parser.add_argument(
         "--binary",
@@ -162,11 +172,19 @@ def main():
         except Exception as e:
             print(f"Aviso ao carregar manifesto anterior: {e}")
 
+    # Garante que os caminhos de binarios existentes tambem usem '/' no inicio
+    if existing_binary and isinstance(existing_binary, dict) and "file" in existing_binary:
+        existing_binary["file"] = format_manifest_path(existing_binary["file"])
+    for k, v in existing_binaries.items():
+        if isinstance(v, dict) and "file" in v:
+            v["file"] = format_manifest_path(v["file"])
+
     print(f"Varrendo arquivos em: {client_root}")
     files_checksums = scan_client_files(client_root)
     print(f"Total de arquivos mapeados: {len(files_checksums)}")
 
-    url = args.url if args.url.endswith("/") else args.url + "/"
+    # URL base sempre sem barra no final para evitar URL dupla com os arquivos que comecam com '/'
+    url = args.url.rstrip("/")
 
     manifest = {
         "url": url,
