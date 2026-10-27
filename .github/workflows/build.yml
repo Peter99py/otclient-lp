@@ -65,7 +65,14 @@ jobs:
         run: make build-ubuntu
 
       - name: Package (linux)
-        run: cd build/dist && zip -r ../../otclient-linux.zip .
+        run: |
+          mkdir -p dist
+          cp -r build/dist/* dist/ 2>/dev/null || true
+          [ ! -f dist/silverlakeot ] && (cp build/linux-release/bin/silverlakeot dist/ 2>/dev/null || cp build/linux-release/bin/* dist/ 2>/dev/null || true)
+          chmod +x dist/silverlakeot 2>/dev/null || true
+          cp -r data mods modules init.lua otclientrc.lua dist/ 2>/dev/null || true
+          [ -f cacert.pem ] && cp cacert.pem dist/ || true
+          cd dist && zip -r ../otclient-linux.zip .
 
       - name: Publish asset (linux)
         env:
@@ -75,8 +82,54 @@ jobs:
           gh release view latest >/dev/null 2>&1 || \
             gh release create latest \
               --title "Latest build" \
-              --notes "Build automatico do cliente (branch main)." || true
+              --notes "Build automatico do cliente." || true
           gh release upload latest otclient-linux.zip --clobber
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Download existing updater manifest
+        if: env.R2_CONFIGURED == 'true'
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+          AWS_DEFAULT_REGION: auto
+          R2_CONFIGURED: ${{ secrets.R2_ACCOUNT_ID != '' && secrets.R2_BUCKET != '' }}
+        run: |
+          aws s3 cp s3://${{ secrets.R2_BUCKET }}/client/updater.json dist/updater.json \
+            --endpoint-url https://${{ secrets.R2_ACCOUNT_ID }}.r2.cloudflarestorage.com || true
+
+      - name: Generate updater manifest
+        run: |
+          BIN_FILE=$(ls dist/silverlakeot 2>/dev/null || ls dist/otclient 2>/dev/null | head -n 1)
+          if [ -n "$BIN_FILE" ]; then
+            python tools/generate_updater_manifest.py \
+              --client-dir dist \
+              --binary-linux "$BIN_FILE" \
+              --url "https://downloads.silverlakeot.com/client/" \
+              --output dist/updater.json
+          else
+            python tools/generate_updater_manifest.py \
+              --client-dir dist \
+              --url "https://downloads.silverlakeot.com/client/" \
+              --output dist/updater.json
+          fi
+
+      - name: Deploy updates to Cloudflare R2
+        if: env.R2_CONFIGURED == 'true'
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+          AWS_DEFAULT_REGION: auto
+          R2_CONFIGURED: ${{ secrets.R2_ACCOUNT_ID != '' && secrets.R2_BUCKET != '' }}
+        run: |
+          echo ">> Sincronizando arquivos atualizados com o Cloudflare R2..."
+          aws s3 sync dist s3://${{ secrets.R2_BUCKET }}/client/ \
+            --endpoint-url https://${{ secrets.R2_ACCOUNT_ID }}.r2.cloudflarestorage.com \
+            --exclude "*.zip" \
+            --exclude "*.log"
 
   # ---------------------------------------------------------------------------
   # 2) Windows: backend Go + client C++
@@ -155,12 +208,24 @@ jobs:
         with:
           python-version: '3.12'
 
+      - name: Download existing updater manifest
+        shell: bash
+        if: env.R2_CONFIGURED == 'true'
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+          AWS_DEFAULT_REGION: auto
+          R2_CONFIGURED: ${{ secrets.R2_ACCOUNT_ID != '' && secrets.R2_BUCKET != '' }}
+        run: |
+          aws s3 cp s3://${{ secrets.R2_BUCKET }}/client/updater.json dist/updater.json \
+            --endpoint-url https://${{ secrets.R2_ACCOUNT_ID }}.r2.cloudflarestorage.com || true
+
       - name: Generate updater manifest
         shell: bash
         run: |
           EXE_FILE=$(ls dist/*.exe 2>/dev/null | head -n 1)
           if [ -n "$EXE_FILE" ]; then
-            python tools/generate_updater_manifest.py               --client-dir dist               --binary "$EXE_FILE"               --url "https://downloads.silverlakeot.com/client/"               --output dist/updater.json
+            python tools/generate_updater_manifest.py               --client-dir dist               --binary-windows "$EXE_FILE"               --url "https://downloads.silverlakeot.com/client/"               --output dist/updater.json
           else
             python tools/generate_updater_manifest.py               --client-dir dist               --url "https://downloads.silverlakeot.com/client/"               --output dist/updater.json
           fi

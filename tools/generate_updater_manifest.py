@@ -122,17 +122,17 @@ def main():
     parser.add_argument(
         "--binary",
         default=None,
-        help="Binario unico generico (ex: otclient.exe)",
+        help="Binario unico generico (ex: silverlakeot.exe)",
     )
     parser.add_argument(
         "--binary-windows",
         default=None,
-        help="Executavel Windows (ex: otclient.exe ou dist/otclient.exe)",
+        help="Executavel Windows (ex: silverlakeot.exe ou dist/silverlakeot.exe)",
     )
     parser.add_argument(
         "--binary-linux",
         default=None,
-        help="Executavel Linux (ex: otclient ou dist/otclient)",
+        help="Executavel Linux (ex: silverlakeot ou dist/silverlakeot)",
     )
     parser.add_argument(
         "--output",
@@ -147,6 +147,21 @@ def main():
         print(f"Erro: Diretorio do client nao encontrado: {client_root}", file=sys.stderr)
         sys.exit(1)
 
+    output_path = os.path.abspath(args.output)
+    existing_binaries = {}
+    existing_binary = None
+
+    if os.path.isfile(output_path):
+        try:
+            with open(output_path, "r", encoding="utf-8") as f:
+                old_data = json.load(f)
+                if isinstance(old_data.get("binaries"), dict):
+                    existing_binaries = old_data["binaries"]
+                if isinstance(old_data.get("binary"), dict):
+                    existing_binary = old_data["binary"]
+        except Exception as e:
+            print(f"Aviso ao carregar manifesto anterior: {e}")
+
     print(f"Varrendo arquivos em: {client_root}")
     files_checksums = scan_client_files(client_root)
     print(f"Total de arquivos mapeados: {len(files_checksums)}")
@@ -159,22 +174,25 @@ def main():
     }
 
     # Binarios por plataforma
-    binaries = {}
+    new_binaries = {}
     if args.binary_windows:
-        binaries["windows"] = resolve_binary(client_root, args.binary_windows)
+        new_binaries["windows"] = resolve_binary(client_root, args.binary_windows)
     if args.binary_linux:
-        binaries["linux"] = resolve_binary(client_root, args.binary_linux)
+        new_binaries["linux"] = resolve_binary(client_root, args.binary_linux)
+
+    # Mescla entradas de multiplas plataformas preservando o que nao foi sobrescrito
+    binaries = {**existing_binaries, **new_binaries}
 
     if binaries:
         manifest["binaries"] = binaries
-        # Manter compatibilidade legada com 'binary' caso cliente antigo leia
         if "windows" in binaries and not args.binary:
             manifest["binary"] = binaries["windows"]
+        elif existing_binary and not args.binary:
+            manifest["binary"] = existing_binary
 
     if args.binary and "binary" not in manifest:
         manifest["binary"] = resolve_binary(client_root, args.binary)
 
-    output_path = os.path.abspath(args.output)
     with open(output_path, "w", encoding="utf-8") as f:
         json.dump(manifest, f, indent=2)
 

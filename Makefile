@@ -16,12 +16,12 @@
 
 # --- Configuracoes ------------------------------------------------------------
 DISTROBOX_NAME  ?= fedora
-VCPKG_COMMIT    ?= cd61e1e26a038e82d6550a3ebbe0fbbfe7da78e3
+VCPKG_COMMIT    ?= $(shell python3 -c 'import json; print(json.load(open("vcpkg.json"))["builtin-baseline"])' 2>/dev/null || echo "9eec002df1cd109f8f104cd966a763daf9751489")
 VCPKG_ROOT      := $(HOME)/vcpkg
 VCPKG_INSTALLED := $(HOME)/vcpkg_installed
 VCPKG_MANIFEST  := $(HOME)/vcpkg-manifest
 BUILD_PRESET     = linux-release
-BIN_NAME         = otclient-silverlake-fedora
+BIN_NAME        ?= silverlakeot
 SOURCE_DIR       = $(CURDIR)
 BUILD_DIR        = $(SOURCE_DIR)/build
 DIST_DIR         = $(BUILD_DIR)/dist
@@ -39,24 +39,23 @@ define db_run
 	@$(DB) bash -c '$(1)'
 endef
 
-# --- Targets principais -------------------------------------------------------
-.PHONY: help all install-deps vcpkg configure build dist run clean clean-all build-fedora build-ubuntu
+.PHONY: help install-deps vcpkg configure build dist all build-fedora build-ubuntu run clean clean-all check-distrobox
 
+# --- Ajuda --------------------------------------------------------------------
 help:
-	@echo "OTClient build para Bazzite (multi-distro: Fedora via distrobox, Ubuntu nativo)"
+	@echo "OTClient Linux Build"
 	@echo
-	@echo "Targets:"
-	@echo "  install-deps   instala deps do Fedora, Perl e Autotools no distrobox"
-	@echo "  vcpkg          baixa vcpkg e instala deps C++ (vcpkg_installed)"
-	@echo "  configure      roda cmake --preset $(BUILD_PRESET)"
-	@echo "  build          compila o otclient (via distrobox)"
-	@echo "  dist           copia binario + assets para $(DIST_DIR)/"
-	@echo "  all            install-deps + vcpkg + build + dist"
-	@echo "  run            roda o client de $(DIST_DIR)/"
-	@echo "  clean          remove $(BUILD_DIR)/"
-	@echo "  clean-all      remove $(BUILD_DIR)/ + cache do vcpkg"
-	@echo "  build-fedora   build completo para Fedora (via distrobox)"
-	@echo "  build-ubuntu   build completo para Ubuntu (nativo, sem distrobox)"
+	@echo "Alvos disponiveis:"
+	@echo "  make all           - Build completo do zero (install-deps + vcpkg + configure + build + dist)"
+	@echo "  make install-deps  - Instala compilador e libs do sistema no distrobox"
+	@echo "  make vcpkg         - Baixa vcpkg e compila dependencias C++"
+	@echo "  make configure     - Roda o CMake"
+	@echo "  make build         - Compila o otclient"
+	@echo "  make dist          - Cria pasta dist/ com binario e assets"
+	@echo "  make run           - Executa o client compilado"
+	@echo "  make clean         - Limpa pasta build/"
+	@echo "  make clean-all     - Limpa build/ e cache do vcpkg"
+	@echo "  make build-ubuntu  - Build nativo no Ubuntu (sem distrobox, usado no GitHub Actions)"
 	@echo
 	@echo "Variaveis:"
 	@echo "  DISTROBOX_NAME=$(DISTROBOX_NAME)"
@@ -91,8 +90,9 @@ vcpkg: $(VCPKG_ROOT)/vcpkg
 # Clone e bootstrap do vcpkg (roda dentro do distrobox)
 $(VCPKG_ROOT)/vcpkg:
 	@echo ">> Clonando vcpkg ($(VCPKG_COMMIT))..."
-	$(call db_run, git clone https://github.com/microsoft/vcpkg.git $(VCPKG_ROOT) && \
+	$(call db_run, if [ ! -d "$(VCPKG_ROOT)" ]; then git clone https://github.com/microsoft/vcpkg.git $(VCPKG_ROOT); fi && \
 		cd $(VCPKG_ROOT) && \
+		git fetch origin $(VCPKG_COMMIT) && \
 		git checkout $(VCPKG_COMMIT) && \
 		./bootstrap-vcpkg.sh -disableMetrics)
 
@@ -120,9 +120,10 @@ build:
 dist: build
 	@echo ">> Empacotando binario + assets em $(DIST_DIR)/..."
 	@mkdir -p $(DIST_DIR)
-	@cp $(BUILD_DIR)/$(BUILD_PRESET)/bin/otclient $(DIST_DIR)/$(BIN_NAME)
+	@cp $(BUILD_DIR)/$(BUILD_PRESET)/bin/silverlakeot $(DIST_DIR)/$(BIN_NAME) 2>/dev/null || cp $(BUILD_DIR)/$(BUILD_PRESET)/bin/otclient $(DIST_DIR)/$(BIN_NAME)
 	@chmod +x $(DIST_DIR)/$(BIN_NAME)
-	@cp -r data mods modules init.lua otclientrc.lua cacert.pem $(DIST_DIR)/ 2>/dev/null
+	@cp -r data mods modules init.lua otclientrc.lua $(DIST_DIR)/ 2>/dev/null || true
+	@[ -f cacert.pem ] && cp cacert.pem $(DIST_DIR)/ || true
 	@[ -f config.ini ] && cp config.ini $(DIST_DIR)/ || true
 	@echo
 	@echo ">> Pronto! Para rodar:"
@@ -162,13 +163,14 @@ build-ubuntu:
 		perl \
 		autoconf automake libtool libltdl-dev autoconf-archive
 
-	@echo ">> Clonando e configurando vcpkg..."
+	@echo ">> Clonando e configurando vcpkg ($(VCPKG_COMMIT))..."
 	@if [ ! -d "$(VCPKG_ROOT)" ]; then \
-		git clone https://github.com/microsoft/vcpkg.git "$(VCPKG_ROOT)" && \
-		cd "$(VCPKG_ROOT)" && \
-		git checkout $(VCPKG_COMMIT) && \
-		./bootstrap-vcpkg.sh -disableMetrics; \
+		git clone https://github.com/microsoft/vcpkg.git "$(VCPKG_ROOT)"; \
 	fi
+	@cd "$(VCPKG_ROOT)" && \
+		git fetch origin $(VCPKG_COMMIT) && \
+		git checkout $(VCPKG_COMMIT) && \
+		./bootstrap-vcpkg.sh -disableMetrics
 
 	@mkdir -p "$(VCPKG_MANIFEST)"
 	@cp vcpkg.json "$(VCPKG_MANIFEST)/"
@@ -200,9 +202,10 @@ build-ubuntu:
 
 	@echo ">> Empacotando binario + assets..."
 	@mkdir -p "$(DIST_DIR)" && \
-		cp "$(BUILD_DIR)/linux-release/bin/otclient" "$(DIST_DIR)/otclient-silverlake-ubuntu" && \
-		chmod +x "$(DIST_DIR)/otclient-silverlake-ubuntu" && \
-		cp -r data mods modules init.lua otclientrc.lua cacert.pem "$(DIST_DIR)/" 2>/dev/null && \
-		[ -f config.ini ] && cp config.ini "$(DIST_DIR)/" || true
+		(cp "$(BUILD_DIR)/linux-release/bin/silverlakeot" "$(DIST_DIR)/$(BIN_NAME)" 2>/dev/null || cp "$(BUILD_DIR)/linux-release/bin/otclient" "$(DIST_DIR)/$(BIN_NAME)" 2>/dev/null || cp "$(BUILD_DIR)/linux-release/bin/*" "$(DIST_DIR)/" 2>/dev/null || true) && \
+		chmod +x "$(DIST_DIR)/$(BIN_NAME)" 2>/dev/null || true && \
+		cp -r data mods modules init.lua otclientrc.lua "$(DIST_DIR)/" 2>/dev/null || true && \
+		([ -f cacert.pem ] && cp cacert.pem "$(DIST_DIR)/" || true) && \
+		([ -f config.ini ] && cp config.ini "$(DIST_DIR)/" || true)
 
-	@echo ">> Build para Ubuntu concluído! Binario em $(DIST_DIR)/otclient-silverlake-ubuntu"
+	@echo ">> Build para Ubuntu concluído! Binario em $(DIST_DIR)/$(BIN_NAME)"
