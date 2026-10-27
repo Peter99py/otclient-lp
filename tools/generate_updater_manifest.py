@@ -103,17 +103,28 @@ def scan_client_files(client_root: str):
 
 
 def resolve_binary(client_root: str, binary_path: str):
-    """Calcula o checksum do binario e retorna dict {'file': '/...', 'checksum': '...'}."""
-    if not os.path.isabs(binary_path):
-        binary_path = os.path.join(client_root, binary_path)
+    """Calcula o checksum do binario e retorna dict {'file': '/...', 'checksum': '...'}.
+    Resolve o caminho testando direto, relativo a client_root ou apenas pelo basename dentro de client_root.
+    """
+    candidates = [
+        binary_path,
+        os.path.join(client_root, binary_path),
+        os.path.join(client_root, os.path.basename(binary_path)),
+    ]
+
+    target_file = None
+    for candidate in candidates:
+        if os.path.isfile(candidate):
+            target_file = candidate
+            break
 
     filename = format_manifest_path(os.path.basename(binary_path))
-    if os.path.isfile(binary_path):
-        checksum = calculate_crc32(binary_path)
-        print(f"Binario mapeado: {filename} (CRC32: {checksum})")
+    if target_file and os.path.isfile(target_file):
+        checksum = calculate_crc32(target_file)
+        print(f"Binario mapeado: {filename} em '{target_file}' (CRC32: {checksum})")
         return {"file": filename, "checksum": checksum}
     else:
-        print(f"Aviso: Binario '{binary_path}' nao encontrado em disco.")
+        print(f"Aviso: Binario '{binary_path}' nao encontrado em disco (tentativas: {candidates}).")
         return {"file": filename, "checksum": ""}
 
 
