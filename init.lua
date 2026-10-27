@@ -112,7 +112,7 @@ if ENABLE_SERVERS then
 end
 
 g_app.setName("Client Silverlake");
-g_app.setCompactName("Silverlake");
+g_app.setCompactName("silverlakeot");
 g_app.setOrganizationName("Silver");
 
 g_app.hasUpdater = function()

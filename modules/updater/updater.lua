@@ -104,13 +104,18 @@ local function updateFiles(data, keepCurrentFiles)
     end
   end
 
-  -- update binary
+  -- update binary (compativel com 'binaries' multi-SO e fallback para 'binary' legado)
   local binary = nil
-  if type(data.binary) == "table" and data.binary.file:len() > 1 then
+  local binaryData = data.binary
+  if type(data.binaries) == "table" and type(data.binaries[g_app.getOs()]) == "table" then
+    binaryData = data.binaries[g_app.getOs()]
+  end
+
+  if type(binaryData) == "table" and binaryData.file and binaryData.file:len() > 1 then
     local selfChecksum = g_resources.selfChecksum()
-    if selfChecksum:len() > 0 and selfChecksum ~= data.binary.checksum then
-      binary = data.binary.file
-      table.insert(toUpdate, { binary, data.binary.checksum })
+    if selfChecksum:len() > 0 and selfChecksum ~= binaryData.checksum then
+      binary = binaryData.file
+      table.insert(toUpdate, { binary, binaryData.checksum })
     end
   end
 

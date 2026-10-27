@@ -5,6 +5,7 @@ generate_updater_manifest.py
 Gera o arquivo updater.json para o auto-updater do OTClient.
 Calcula o CRC32 (em hexadecimal minúsculo) de cada arquivo relativo à raiz do client,
 compatível com Crypt::crc32 do C++.
+Suporta múltiplos binários indexados por SO (windows, linux, mac).
 """
 
 import argparse
@@ -91,6 +92,21 @@ def scan_client_files(client_root: str):
     return files_map
 
 
+def resolve_binary(client_root: str, binary_path: str):
+    """Calcula o checksum do binario e retorna dict {'file': '...', 'checksum': '...'}."""
+    if not os.path.isabs(binary_path):
+        binary_path = os.path.join(client_root, binary_path)
+
+    filename = os.path.basename(binary_path)
+    if os.path.isfile(binary_path):
+        checksum = calculate_crc32(binary_path)
+        print(f"Binario mapeado: {filename} (CRC32: {checksum})")
+        return {"file": filename, "checksum": checksum}
+    else:
+        print(f"Aviso: Binario '{binary_path}' nao encontrado em disco.")
+        return {"file": filename, "checksum": ""}
+
+
 def main():
     parser = argparse.ArgumentParser(description="Gerador de Manifesto updater.json para OTClient")
     parser.add_argument(
@@ -106,7 +122,17 @@ def main():
     parser.add_argument(
         "--binary",
         default=None,
-        help="Nome ou caminho do executavel do client (ex: SilverLake.exe)",
+        help="Binario unico generico (ex: otclient.exe)",
+    )
+    parser.add_argument(
+        "--binary-windows",
+        default=None,
+        help="Executavel Windows (ex: otclient.exe ou dist/otclient.exe)",
+    )
+    parser.add_argument(
+        "--binary-linux",
+        default=None,
+        help="Executavel Linux (ex: otclient ou dist/otclient)",
     )
     parser.add_argument(
         "--output",
@@ -132,25 +158,21 @@ def main():
         "files": files_checksums,
     }
 
-    if args.binary:
-        binary_path = args.binary
-        if not os.path.isabs(binary_path):
-            binary_path = os.path.join(client_root, binary_path)
+    # Binarios por plataforma
+    binaries = {}
+    if args.binary_windows:
+        binaries["windows"] = resolve_binary(client_root, args.binary_windows)
+    if args.binary_linux:
+        binaries["linux"] = resolve_binary(client_root, args.binary_linux)
 
-        binary_filename = os.path.basename(args.binary)
-        if os.path.isfile(binary_path):
-            binary_crc = calculate_crc32(binary_path)
-            manifest["binary"] = {
-                "file": binary_filename,
-                "checksum": binary_crc,
-            }
-            print(f"Binario mapeado: {binary_filename} (CRC32: {binary_crc})")
-        else:
-            print(f"Aviso: Binario '{binary_path}' nao encontrado. O bloco 'binary' nao contera checksum.")
-            manifest["binary"] = {
-                "file": binary_filename,
-                "checksum": "",
-            }
+    if binaries:
+        manifest["binaries"] = binaries
+        # Manter compatibilidade legada com 'binary' caso cliente antigo leia
+        if "windows" in binaries and not args.binary:
+            manifest["binary"] = binaries["windows"]
+
+    if args.binary and "binary" not in manifest:
+        manifest["binary"] = resolve_binary(client_root, args.binary)
 
     output_path = os.path.abspath(args.output)
     with open(output_path, "w", encoding="utf-8") as f:

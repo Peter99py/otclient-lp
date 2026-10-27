@@ -62,6 +62,11 @@ if(NOT OTCLIENT_BUILD_CLIENT)
   endif()
 endif()
 
+# Define o nome customizado do executavel (silverlakeot / silverlakeot.exe)
+set_target_properties(${PROJECT_NAME} PROPERTIES
+  OUTPUT_NAME "silverlakeot"
+)
+
 # *****************************************************************************
 # Options Code
 # *****************************************************************************
